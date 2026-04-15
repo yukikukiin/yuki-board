@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>项目跟进看板</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f6f8;color:#1a1a1a;font-size:14px}
+:root{--blue:#2563eb;--blue-light:#eff6ff;--blue-mid:#93c5fd;--green:#16a34a;--green-light:#f0fdf4;--red:#dc2626;--red-light:#fef2f2;--orange:#ea580c;--orange-light:#fff7ed;--purple:#7c3aed;--purple-light:#f5f3ff;--pink:#db2777;--pink-light:#fdf2f8;--gray:#6b7280;--gray-light:#f9fafb;--border:#e5e7eb;--white:#ffffff;--radius:8px;--radius-lg:12px}
+.layout{display:flex;min-height:100vh}
+.sidebar{width:220px;background:var(--white);border-right:1px solid var(--border);padding:0;flex-shrink:0;display:flex;flex-direction:column}
+.sidebar-logo{padding:18px 20px 14px;border-bottom:1px solid var(--border)}
+.sidebar-logo h1{font-size:15px;font-weight:600;color:#111}
+.sidebar-logo p{font-size:11px;color:var(--gray);margin-top:2px}
+.nav-section{padding:12px 12px 4px;font-size:10px;font-weight:600;color:var(--gray);letter-spacing:.08em;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 12px;margin:1px 8px;border-radius:6px;cursor:pointer;font-size:13px;color:#374151;transition:background .1s}
+.nav-item:hover{background:var(--gray-light)}
+.nav-item.active{background:var(--blue-light);color:var(--blue);font-weight:500}
+.nav-icon{width:16px;height:16px;flex-shrink:0}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.page-title{font-size:16px;font-weight:600;color:#111}
+.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select,input[type=text],input[type=date],textarea{font-family:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--white);color:#111;outline:none;transition:border-color .15s}
+select:focus,input:focus,textarea:focus{border-color:var(--blue)}
+textarea{resize:vertical;min-height:60px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-ghost{background:transparent;color:#374151;border-color:var(--border)}
+.btn-danger{background:var(--red-light);color:var(--red);border-color:#fca5a5}
+.btn-sm{padding:4px 10px;font-size:12px}
+.content{padding:20px 24px;flex:1}
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px}
+.stat-n{font-size:24px;font-weight:600;line-height:1}
+.stat-l{font-size:12px;color:var(--gray);margin-top:4px}
+.stat-n.red{color:var(--red)}.stat-n.amber{color:var(--orange)}.stat-n.green{color:var(--green)}.stat-n.blue{color:var(--blue)}
+.section{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.section-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.section-title{font-size:14px;font-weight:600}
+table{width:100%;border-collapse:collapse}
+th{padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:#fafafa;white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa;cursor:pointer}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:500;white-space:nowrap}
+.pill-dev{background:#dbeafe;color:#1d4ed8}.pill-ui{background:#ede9fe;color:#5b21b6}
+.pill-qa{background:#d1fae5;color:#065f46}.pill-pm{background:#fef9c3;color:#854d0e}
+.pill-op{background:#fce7f3;color:#9d174d}
+.pill-p0{background:#fee2e2;color:#991b1b}.pill-p1{background:#ffedd5;color:#9a3412}.pill-p2{background:#dcfce7;color:#166534}
+.days-ok{color:var(--green);font-weight:500}.days-warn{color:var(--orange);font-weight:500}
+.days-ov{color:var(--red);font-weight:500}.days-done{color:var(--gray)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.group-hd{padding:10px 12px;background:#f8fafc;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.cnt-badge{background:#e5e7eb;color:#374151;font-size:11px;padding:1px 7px;border-radius:999px}
+.empty-row td{text-align:center;padding:32px;color:var(--gray)}
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.modal{background:var(--white);border-radius:var(--radius-lg);width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+.modal-hd{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-hd h2{font-size:15px;font-weight:600}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray);line-height:1;padding:0 4px}
+.modal-body{padding:18px 20px}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:500;color:#374151;margin-bottom:5px}
+.field label .req{color:var(--red)}
+.field input,.field select,.field textarea{width:100%}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.flow-hint{background:var(--blue-light);border:1px solid var(--blue-mid);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#1d4ed8;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.flow-step{display:flex;align-items:center;gap:4px}
+.flow-num{width:18px;height:18px;border-radius:50%;background:var(--blue);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* GANTT */
+.gantt-wrap{overflow-x:auto}
+.gantt-grid{display:grid;min-width:800px}
+.gantt-hd-row{display:flex;border-bottom:1px solid var(--border);background:#fafafa}
+.gantt-label-col{width:220px;flex-shrink:0;padding:8px 12px;font-size:11px;font-weight:600;color:var(--gray);text-transform:uppercase;border-right:1px solid var(--border)}
+.gantt-months{flex:1;display:flex}
+.gantt-month{flex:1;text-align:center;padding:8px 4px;font-size:11px;font-weight:600;color:var(--gray);border-right:1px solid #f0f0f0;text-transform:uppercase}
+.gantt-row{display:flex;border-bottom:1px solid #f3f4f6;min-height:36px;align-items:center}
+.gantt-row:hover{background:#fafafa}
+.gantt-row.group{background:#f8fafc;min-height:30px}
+.gantt-task-label{width:220px;flex-shrink:0;padding:6px 12px;font-size:12px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:2px}
+.gantt-task-name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt-task-sub{font-size:10px;color:var(--gray)}
+.gantt-track{flex:1;position:relative;padding:4px 0}
+.gantt-bar{position:absolute;height:20px;top:50%;transform:translateY(-50%);border-radius:4px;display:flex;align-items:center;padding:0 6px;font-size:10px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .15s;cursor:pointer}
+.gantt-bar:hover{opacity:.85}
+.gantt-today{position:absolute;top:0;bottom:0;width:1px;background:var(--red);opacity:.6;pointer-events:none}
+.today-label{position:absolute;top:4px;font-size:9px;color:var(--red);font-weight:600;transform:translateX(-50%)}
+/* RESOURCE */
+.resource-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.person-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.person-hd{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0}
+.person-name{font-size:13px;font-weight:600}
+.person-dept{font-size:11px;color:var(--gray);margin-top:2px}
+.person-body{padding:12px 16px}
+.load-bar-wrap{margin-bottom:10px}
+.load-label{display:flex;justify-content:space-between;font-size:11px;color:var(--gray);margin-bottom:4px}
+.load-bar{height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden}
+.load-fill{height:100%;border-radius:3px;transition:width .3s}
+.task-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f3f4f6;font-size:12px}
+.task-item:last-child{border:none}
+.task-item-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:8px}
+.task-item-days{font-size:11px;font-weight:500;color:var(--blue);white-space:nowrap}
+.member-form{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:16px}
+.member-form h3{font-size:13px;font-weight:600;margin-bottom:12px}
+/* TABS */
+.tabs{display:flex;gap:2px;background:#f3f4f6;padding:3px;border-radius:8px;width:fit-content}
+.tab-btn{padding:5px 14px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--gray);transition:all .15s}
+.tab-btn.active{background:var(--white);color:#111;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.note-chip{display:inline-block;width:6px;height:6px;background:var(--orange);border-radius:50%;margin-left:4px;vertical-align:middle}
+.color-opt{width:28px;height:28px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:border-color .15s}
+.color-opt.active{border-color:#fff;box-shadow:0 0 0 2px #374151}
+.color-opt:hover{opacity:.85}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>项目看板</h1>
+      <p id="today-lbl"></p>
+    </div>
+    <div class="nav-section">视图</div>
+    <div class="nav-item active" onclick="showPage('tasks',this)">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="2.5" rx="1" fill="currentColor" opacity=".3"/><rect x="1" y="7" width="14" height="2.5" rx="1" fill="currentColor" opacity=".5"/><rect x="1" y="11" width="14" height="2.5" rx="1" fill="currentColor"/></svg>
+      任务跟进
+    </div>
+    <div class="nav-item" onclick="showPage('gantt',this)">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="9" height="2" rx="1" fill="currentColor"/><rect x="5" y="7" width="7" height="2" rx="1" fill="currentColor" opacity=".7"/><rect x="2" y="11" width="11" height="2" rx="1" fill="currentColor" opacity=".5"/></svg>
+      甘特图
+    </div>
+    <div class="nav-item" onclick="showPage('resource',this)">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.5" fill="currentColor" opacity=".5"/><circle cx="10.5" cy="5" r="2.5" fill="currentColor" opacity=".3"/><path d="M1 13c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+      人力资源
+    </div>
+    <div class="nav-section" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding-right:12px">
+      <span>项目</span>
+      <span onclick="openAddProj()" style="cursor:pointer;font-size:16px;color:var(--blue);font-weight:600;line-height:1" title="新增项目">+</span>
+    </div>
+    <div id="proj-nav-list"></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <span class="page-title" id="page-title">任务跟进</span>
+        <div class="tabs" id="task-tabs">
+          <button class="tab-btn active" onclick="setView('all',this)">全部</button>
+          <button class="tab-btn" onclick="setView('dept',this)">按部门</button>
+          <button class="tab-btn" onclick="setView('risk',this)">风险预警</button>
+        </div>
+      </div>
+      <div class="filters">
+        <select id="f-proj" onchange="renderTasks()"><option value="">全部项目</option></select>
+        <select id="f-dept" onchange="renderTasks()"><option value="">全部部门</option></select>
+        <select id="f-status" onchange="renderTasks()">
+          <option value="">全部状态</option>
+          <option>未开始</option><option>进行中</option><option>已延期</option><option>已完成</option>
+        </select>
+        <button class="btn btn-ghost" onclick="openAddProj()" style="border-color:var(--blue);color:var(--blue)">+ 新增项目</button>
+        <button class="btn btn-primary" onclick="openAdd()">+ 新增任务</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- TASKS PAGE -->
+      <div id="page-tasks">
+        <div class="stats-row" id="stats"></div>
+        <div class="section" id="task-section">
+          <div class="section-header">
+            <span class="section-title" id="table-title">所有任务</span>
+            <span style="font-size:12px;color:var(--gray)" id="task-count"></span>
+          </div>
+          <div id="task-table"></div>
+        </div>
+      </div>
+
+      <!-- GANTT PAGE -->
+      <div id="page-gantt" style="display:none">
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">甘特图</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="g-proj" onchange="renderGantt()"><option value="">全部项目</option></select>
+              <select id="g-dept" onchange="renderGantt()"><option value="">全部部门</option></select>
+            </div>
+          </div>
+          <div class="gantt-wrap" id="gantt-wrap"></div>
+        </div>
+      </div>
+
+      <!-- RESOURCE PAGE -->
+      <div id="page-resource" style="display:none">
+        <div class="member-form">
+          <h3>团队成员管理</h3>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div style="flex:1;min-width:140px"><label style="font-size:12px;color:#374151;display:block;margin-bottom:4px">姓名</label><input type="text" id="m-name" placeholder="例：张伟"></div>
+            <div style="flex:1;min-width:120px"><label style="font-size:12px;color:#374151;display:block;margin-bottom:4px">部门</label>
+              <select id="m-dept" style="width:100%"><option value="">选择部门</option><option>产品</option><option>UI</option><option>开发</option><option>测试</option><option>运营</option></select>
+            </div>
+            <div style="flex:1;min-width:120px"><label style="font-size:12px;color:#374151;display:block;margin-bottom:4px">每日可用工时(h)</label><input type="number" id="m-hours" value="8" min="1" max="12" style="width:100%"></div>
+            <button class="btn btn-primary btn-sm" onclick="addMember()" style="height:36px">添加成员</button>
+          </div>
+        </div>
+        <div class="resource-grid" id="resource-grid"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2 id="modal-ttl">新增任务</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="flow-hint" class="flow-hint" style="display:none">
+        <strong>新需求建议流程：</strong>
+        <div class="flow-step"><div class="flow-num">1</div>产品出文档</div> →
+        <div class="flow-step"><div class="flow-num">2</div>UI出设计</div> →
+        <div class="flow-step"><div class="flow-num">3</div>开发排期</div> →
+        <div class="flow-step"><div class="flow-num">4</div>测试上线</div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>项目 <span class="req">*</span></label>
+          <select id="f-proj-in" onchange="syncMods()">
+            <option value="">选择项目</option>
+          </select>
+        </div>
+        <div class="field"><label>模块 <span class="req">*</span></label>
+          <select id="f-mod-in"><option value="">先选项目</option></select>
+        </div>
+      </div>
+      <div class="field"><label>任务描述 <span class="req">*</span></label>
+        <input type="text" id="f-name" placeholder="例：首页视觉设计稿">
+      </div>
+      <div class="field-row">
+        <div class="field"><label>部门 <span class="req">*</span></label>
+          <select id="f-dept-in" onchange="syncOwners()">
+            <option value="">选择部门</option>
+            <option>产品</option><option>UI</option><option>开发</option><option>测试</option><option>运营</option>
+          </select>
+        </div>
+        <div class="field"><label>负责人</label>
+          <select id="f-owner-in"><option value="">未指定</option></select>
+        </div>
+      </div>
+      <div class="field-row3">
+        <div class="field"><label>优先级</label>
+          <select id="f-pri"><option>P0</option><option selected>P1</option><option>P2</option></select>
+        </div>
+        <div class="field"><label>状态</label>
+          <select id="f-st"><option>未开始</option><option>进行中</option><option>已延期</option><option>已完成</option></select>
+        </div>
+        <div class="field"><label>预计人天</label>
+          <input type="number" id="f-days" min="0.5" step="0.5" placeholder="例：3">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>计划开始 <span class="req">*</span></label><input type="date" id="f-start"></div>
+        <div class="field"><label>计划完成 <span class="req">*</span></label><input type="date" id="f-end"></div>
+      </div>
+      <div class="field"><label>备注 / 阻塞原因</label>
+        <textarea id="f-note" placeholder="延期请填写原因，方便跟进"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="btn-del" style="display:none" onclick="delTask()">删除任务</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary btn-sm" onclick="saveTask()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let MODS={};
+let PROJ_C={};
+let PROJ_BG={};
+
+function hexToRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return{r,g,b};}
+function colorToLight(hex){const {r,g,b}=hexToRgb(hex);return `rgb(${Math.round(r*.15+240)},${Math.round(g*.15+240)},${Math.round(b*.15+240)})`;}
+function rebuildProjMaps(){
+  MODS={};PROJ_C={};PROJ_BG={};
+  projects.forEach(p=>{
+    MODS[p.name]=p.mods||[];
+    PROJ_C[p.name]=p.color||'#6b7280';
+    PROJ_BG[p.name]=colorToLight(p.color||'#6b7280');
+  });
+}
+const DEPT_PILL={开发:'pill-dev',UI:'pill-ui',测试:'pill-qa',产品:'pill-pm',运营:'pill-op'};
+const DEPT_AV={开发:'#1d4ed8',UI:'#5b21b6',测试:'#065f46',产品:'#854d0e',运营:'#9d174d'};
+const DEPT_AVBG={开发:'#dbeafe',UI:'#ede9fe',测试:'#d1fae5',产品:'#fef9c3',运营:'#fce7f3'};
+const PRI={P0:'pill-p0',P1:'pill-p1',P2:'pill-p2'};
+const STORAGE='pm_v4';
+const TODAY=new Date(); TODAY.setHours(0,0,0,0);
+
+let tasks=[], members=[], projects=[], nextId=50, editId=null, editProjId=null, currentView='all', currentPage='tasks', projFilter='';
+
+const SEED_PROJECTS=[
+  {id:'p1',name:'世界杯运营活动',color:'#2563eb',mods:['榜单','竞猜','社区评论'],desc:''},
+  {id:'p2',name:'石油专题页',color:'#16a34a',mods:['专题页'],desc:''},
+  {id:'p3',name:'澳洲Pro活动',color:'#ea580c',mods:['欢迎赠金','月度活动'],desc:''},
+];
+
+const SEED_TASKS=[
+  {id:1,proj:'世界杯运营活动',mod:'榜单',dept:'产品',name:'需求文档 & 原型',owner:'',pri:'P0',start:'2026-04-15',end:'2026-05-05',status:'进行中',days:1,note:''},
+  {id:2,proj:'世界杯运营活动',mod:'榜单',dept:'UI',name:'视觉设计 & 切图',owner:'',pri:'P0',start:'2026-05-06',end:'2026-05-12',status:'未开始',days:2,note:''},
+  {id:3,proj:'世界杯运营活动',mod:'榜单',dept:'开发',name:'前端实现',owner:'',pri:'P0',start:'2026-05-13',end:'2026-05-22',status:'未开始',days:3,note:''},
+  {id:4,proj:'世界杯运营活动',mod:'榜单',dept:'开发',name:'后端接口',owner:'',pri:'P0',start:'2026-05-13',end:'2026-05-20',status:'未开始',days:3,note:''},
+  {id:5,proj:'世界杯运营活动',mod:'榜单',dept:'测试',name:'测试执行',owner:'',pri:'P0',start:'2026-05-23',end:'2026-05-27',status:'未开始',days:2,note:''},
+  {id:6,proj:'世界杯运营活动',mod:'竞猜',dept:'产品',name:'需求文档 & 原型',owner:'',pri:'P0',start:'2026-04-15',end:'2026-05-03',status:'进行中',days:1,note:''},
+  {id:7,proj:'世界杯运营活动',mod:'竞猜',dept:'UI',name:'视觉设计',owner:'',pri:'P0',start:'2026-05-04',end:'2026-05-10',status:'未开始',days:2,note:''},
+  {id:8,proj:'世界杯运营活动',mod:'竞猜',dept:'开发',name:'前端 & 后端实现',owner:'',pri:'P0',start:'2026-05-11',end:'2026-05-25',status:'未开始',days:5,note:''},
+  {id:9,proj:'世界杯运营活动',mod:'社区评论',dept:'开发',name:'评论组件开发',owner:'',pri:'P1',start:'2026-05-18',end:'2026-05-28',status:'未开始',days:2,note:''},
+  {id:10,proj:'石油专题页',mod:'专题页',dept:'产品',name:'需求文档',owner:'',pri:'P0',start:'2026-04-15',end:'2026-04-22',status:'进行中',days:1,note:''},
+  {id:11,proj:'石油专题页',mod:'专题页',dept:'UI',name:'页面视觉设计',owner:'',pri:'P0',start:'2026-04-23',end:'2026-04-28',status:'未开始',days:2,note:''},
+  {id:12,proj:'石油专题页',mod:'专题页',dept:'开发',name:'前端页面开发',owner:'',pri:'P0',start:'2026-04-29',end:'2026-05-08',status:'未开始',days:3,note:''},
+  {id:13,proj:'石油专题页',mod:'专题页',dept:'测试',name:'功能 & 数据测试',owner:'',pri:'P0',start:'2026-05-09',end:'2026-05-13',status:'未开始',days:1,note:''},
+  {id:14,proj:'澳洲Pro活动',mod:'欢迎赠金',dept:'产品',name:'需求文档 & 规则',owner:'',pri:'P0',start:'2026-04-10',end:'2026-04-20',status:'已延期',days:1,note:'等待合规审核'},
+  {id:15,proj:'澳洲Pro活动',mod:'欢迎赠金',dept:'UI',name:'活动页视觉设计',owner:'',pri:'P0',start:'2026-04-22',end:'2026-04-30',status:'未开始',days:2,note:''},
+  {id:16,proj:'澳洲Pro活动',mod:'欢迎赠金',dept:'开发',name:'赠金发放逻辑',owner:'',pri:'P0',start:'2026-05-01',end:'2026-05-12',status:'未开始',days:3,note:''},
+  {id:17,proj:'澳洲Pro活动',mod:'月度活动',dept:'产品',name:'需求文档',owner:'',pri:'P1',start:'2026-04-20',end:'2026-04-30',status:'进行中',days:1,note:''},
+  {id:18,proj:'澳洲Pro活动',mod:'月度活动',dept:'UI',name:'视觉设计',owner:'',pri:'P1',start:'2026-05-01',end:'2026-05-10',status:'未开始',days:2,note:''},
+  {id:19,proj:'澳洲Pro活动',mod:'月度活动',dept:'开发',name:'活动逻辑开发',owner:'',pri:'P1',start:'2026-05-11',end:'2026-05-22',status:'未开始',days:3,note:''},
+];
+const SEED_MEMBERS=[
+  {id:'m1',name:'张伟',dept:'开发',hours:8},
+  {id:'m2',name:'李娜',dept:'UI',hours:8},
+  {id:'m3',name:'王芳',dept:'产品',hours:8},
+  {id:'m4',name:'陈磊',dept:'测试',hours:8},
+  {id:'m5',name:'刘洋',dept:'运营',hours:8},
+];
+
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem(STORAGE)||'{}');
+    projects=d.projects||SEED_PROJECTS.map(p=>({...p}));
+    tasks=d.tasks||SEED_TASKS.map(t=>({...t}));
+    members=d.members||SEED_MEMBERS.map(m=>({...m}));
+    nextId=d.nextId||50;
+  }catch(e){
+    projects=SEED_PROJECTS.map(p=>({...p}));
+    tasks=SEED_TASKS.map(t=>({...t}));
+    members=SEED_MEMBERS.map(m=>({...m}));
+    nextId=50;
+  }
+  rebuildProjMaps();
+}
+function save(){
+  try{localStorage.setItem(STORAGE,JSON.stringify({projects,tasks,members,nextId}));}catch(e){}
+}
+
+function dl(end){if(!end)return null;const d=new Date(end);d.setHours(0,0,0,0);return Math.round((d-TODAY)/86400000);}
+function fmt(d){if(!d)return '—';const[y,m,dd]=d.split('-');return `${m}/${dd}`;}
+function dayChip(t){
+  if(t.status==='已完成')return`<span class="days-done">已完成</span>`;
+  const n=dl(t.end);if(n===null)return`<span class="days-done">无截止</span>`;
+  if(n<0)return`<span class="days-ov">逾期${Math.abs(n)}天</span>`;
+  if(n<=3)return`<span class="days-warn">还剩${n}天</span>`;
+  return`<span class="days-ok">还剩${n}天</span>`;
+}
+function pill(cls,txt){return`<span class="pill ${cls}">${txt}</span>`;}
+function deptPill(d){return pill(DEPT_PILL[d]||'pill-dev',d);}
+function priPill(p){return pill(PRI[p]||'pill-p2',p);}
+
+function renderStats(){
+  const ov=tasks.filter(t=>t.status!=='已完成'&&dl(t.end)<0).length;
+  const wn=tasks.filter(t=>t.status!=='已完成'&&dl(t.end)>=0&&dl(t.end)<=3).length;
+  const ac=tasks.filter(t=>t.status==='进行中').length;
+  const dn=tasks.filter(t=>t.status==='已完成').length;
+  const ttl=tasks.length;
+  document.getElementById('stats').innerHTML=`
+    <div class="stat-card"><div class="stat-n">${ttl}</div><div class="stat-l">全部任务</div></div>
+    <div class="stat-card"><div class="stat-n red">${ov}</div><div class="stat-l">已逾期</div></div>
+    <div class="stat-card"><div class="stat-n amber">${wn}</div><div class="stat-l">3天内到期</div></div>
+    <div class="stat-card"><div class="stat-n blue">${ac}</div><div class="stat-l">进行中</div></div>
+    <div class="stat-card"><div class="stat-n green">${dn}</div><div class="stat-l">已完成</div></div>`;
+}
+
+function getFiltered(){
+  const p=document.getElementById('f-proj').value;
+  const d=document.getElementById('f-dept').value;
+  const s=document.getElementById('f-status').value;
+  return tasks.filter(t=>(!p||t.proj===p)&&(!d||t.dept===d)&&(!s||t.status===s));
+}
+
+function taskTableRows(list){
+  return list.map(t=>`<tr onclick="openEdit(${t.id})">
+    <td><div style="font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}${t.note?'<span class="note-chip" title="'+t.note+'"></span>':''}</div><div style="font-size:11px;color:var(--gray)">${t.mod}</div></td>
+    <td>${deptPill(t.dept)}</td>
+    <td style="font-size:12px;color:var(--gray)">${t.owner||'—'}</td>
+    <td>${priPill(t.pri)}</td>
+    <td style="font-size:12px">${fmt(t.start)}</td>
+    <td style="font-size:12px">${fmt(t.end)}</td>
+    <td style="font-weight:500;color:var(--blue)">${t.days?t.days+'天':'—'}</td>
+    <td>${dayChip(t)}</td>
+  </tr>`).join('');
+}
+
+const TABLE_HDR=`<table><thead><tr><th>任务</th><th>部门</th><th>负责人</th><th>优先级</th><th>开始</th><th>截止</th><th>人天</th><th>倒计时</th></tr></thead><tbody>`;
+
+function renderTasks(){
+  renderStats();
+  const data=getFiltered();
+  document.getElementById('task-count').textContent=`共 ${data.length} 条`;
+  let html='';
+  if(currentView==='all'){
+    const byP={};
+    data.forEach(t=>(byP[t.proj]||(byP[t.proj]=[])).push(t));
+    Object.entries(byP).forEach(([proj,ts])=>{
+      const c=PROJ_C[proj]||'#888';
+      const sorted=ts.slice().sort((a,b)=>(a.end||'9').localeCompare(b.end||'9'));
+      html+=`<div class="group-hd"><span class="dot" style="background:${c}"></span>${proj}<span class="cnt-badge">${ts.length}</span></div>`;
+      html+=TABLE_HDR+taskTableRows(sorted)+'</tbody></table>';
+    });
+    if(!data.length)html+=TABLE_HDR+`<tr class="empty-row"><td colspan="8">暂无任务，点"+ 新增任务"开始</td></tr></tbody></table>`;
+  } else if(currentView==='dept'){
+    ['开发','UI','测试','产品','运营'].forEach(dept=>{
+      const ts=data.filter(t=>t.dept===dept);
+      if(!ts.length)return;
+      const totalDays=ts.reduce((s,t)=>s+(t.days||0),0);
+      html+=`<div class="group-hd">${deptPill(dept)}<span class="cnt-badge">${ts.length} 任务</span><span style="font-size:12px;color:var(--gray);margin-left:4px">共 ${totalDays} 人天</span></div>`;
+      html+=TABLE_HDR+taskTableRows(ts.slice().sort((a,b)=>(a.end||'9').localeCompare(b.end||'9')))+'</tbody></table>';
+    });
+  } else {
+    const risk=data.filter(t=>t.status!=='已完成'&&dl(t.end)!==null&&dl(t.end)<=3)
+      .sort((a,b)=>(a.end||'9').localeCompare(b.end||'9'));
+    html+=`<div style="padding:10px 14px;font-size:13px;color:var(--orange);font-weight:500">需立即跟进：${risk.length} 个任务</div>`;
+    html+=TABLE_HDR+taskTableRows(risk)+'</tbody></table>';
+    if(!risk.length)html=`<div style="text-align:center;padding:40px;color:var(--gray)">暂无风险任务，进度良好</div>`;
+  }
+  document.getElementById('task-table').innerHTML=html;
+}
+
+// GANTT
+function renderGantt(){
+  const gp=document.getElementById('g-proj').value;
+  const gd=document.getElementById('g-dept').value;
+  let data=tasks.filter(t=>t.start&&t.end&&(!gp||t.proj===gp)&&(!gd||t.dept===gd));
+  data.sort((a,b)=>a.start.localeCompare(b.start));
+  const allDates=data.flatMap(t=>[new Date(t.start),new Date(t.end)]);
+  if(!allDates.length){document.getElementById('gantt-wrap').innerHTML='<div style="padding:32px;text-align:center;color:var(--gray)">无数据，请先为任务设置开始和截止日期</div>';return;}
+  const minD=new Date(Math.min(...allDates));
+  const maxD=new Date(Math.max(...allDates));
+  minD.setDate(1); maxD.setDate(1); maxD.setMonth(maxD.getMonth()+2);
+  const totalMs=maxD-minD;
+  function pct(d){return Math.max(0,Math.min(100,(new Date(d)-minD)/totalMs*100));}
+
+  const months=[];
+  let cur=new Date(minD);
+  while(cur<=maxD){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}
+  const mNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const zhM=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+  let html=`<div class="gantt-hd-row">
+    <div class="gantt-label-col">任务</div>
+    <div class="gantt-months">${months.map(m=>`<div class="gantt-month">${zhM[m.getMonth()]}</div>`).join('')}</div>
+  </div>`;
+
+  const todayPct=pct(TODAY);
+  const byP={};
+  data.forEach(t=>(byP[t.proj]||(byP[t.proj]=[])).push(t));
+
+  Object.entries(byP).forEach(([proj,ts])=>{
+    const c=PROJ_C[proj];
+    html+=`<div class="gantt-row group"><div class="gantt-task-label" style="font-weight:600;font-size:12px;color:${c}">
+      <span>${proj}</span></div>
+      <div class="gantt-track" style="background:${PROJ_BG[proj]||'#f0f0f0'}20;position:relative">
+        <div class="gantt-today" style="left:${todayPct}%"><div class="today-label" style="left:${todayPct}%">今天</div></div>
+      </div></div>`;
+    ts.forEach(t=>{
+      const left=pct(t.start);
+      const right=pct(t.end);
+      const w=Math.max(right-left,1);
+      const isDone=t.status==='已完成';
+      const isOv=!isDone&&dl(t.end)<0;
+      const barC=isDone?'#9ca3af':isOv?'#ef4444':c;
+      const label=`${t.name}${t.days?' ('+t.days+'天)':''}`;
+      html+=`<div class="gantt-row" onclick="openEdit(${t.id})">
+        <div class="gantt-task-label">
+          <div class="gantt-task-name" title="${t.name}">${t.name}</div>
+          <div class="gantt-task-sub">${deptPill(t.dept)} ${t.owner||''}</div>
+        </div>
+        <div class="gantt-track" style="position:relative">
+          <div class="gantt-today" style="left:${todayPct}%"></div>
+          <div class="gantt-bar" style="left:${left}%;width:${w}%;background:${barC}20;border:1.5px solid ${barC};color:${barC}" title="${t.name}: ${fmt(t.start)} → ${fmt(t.end)}">${label}</div>
+        </div>
+      </div>`;
+    });
+  });
+  document.getElementById('gantt-wrap').innerHTML=html;
+}
+
+// RESOURCE
+function renderResource(){
+  const grid=document.getElementById('resource-grid');
+  if(!members.length){grid.innerHTML='<div style="color:var(--gray);font-size:13px">暂无成员，请在上方添加团队成员</div>';return;}
+  grid.innerHTML=members.map(m=>{
+    const myTasks=tasks.filter(t=>t.owner===m.name&&t.status!=='已完成');
+    const totalDays=myTasks.reduce((s,t)=>s+(t.days||0),0);
+    const capDays=20;
+    const loadPct=Math.min(100,Math.round(totalDays/capDays*100));
+    const loadColor=loadPct>=80?'#ef4444':loadPct>=50?'#f59e0b':'#16a34a';
+    const avColor=DEPT_AVBG[m.dept]||'#e5e7eb';
+    const avTxt=DEPT_AV[m.dept]||'#374151';
+    const initials=m.name.slice(0,2);
+    return `<div class="person-card">
+      <div class="person-hd">
+        <div class="avatar" style="background:${avColor};color:${avTxt}">${initials}</div>
+        <div>
+          <div class="person-name">${m.name}</div>
+          <div class="person-dept">${deptPill(m.dept)} · ${m.hours}h/天</div>
+        </div>
+        <button onclick="delMember('${m.id}')" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--gray);font-size:16px;line-height:1">×</button>
+      </div>
+      <div class="person-body">
+        <div class="load-bar-wrap">
+          <div class="load-label">
+            <span>当前负载</span>
+            <span style="font-weight:600;color:${loadColor}">${totalDays} 人天 / ${loadPct}%</span>
+          </div>
+          <div class="load-bar"><div class="load-fill" style="width:${loadPct}%;background:${loadColor}"></div></div>
+        </div>
+        ${myTasks.length?myTasks.map(t=>`<div class="task-item">
+          <span class="task-item-name" title="${t.name}">${t.name}</span>
+          <span class="task-item-days">${t.days||'?'}天 · ${fmt(t.end)}</span>
+        </div>`).join(''):'<div style="font-size:12px;color:var(--gray);text-align:center;padding:8px 0">暂无进行中任务</div>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addMember(){
+  const name=document.getElementById('m-name').value.trim();
+  const dept=document.getElementById('m-dept').value;
+  const hours=parseInt(document.getElementById('m-hours').value)||8;
+  if(!name||!dept){alert('请填写姓名和部门');return;}
+  if(members.find(m=>m.name===name)){alert('成员已存在');return;}
+  members.push({id:'m'+Date.now(),name,dept,hours});
+  save(); renderResource(); syncOwners();
+  document.getElementById('m-name').value='';
+}
+function delMember(id){
+  if(!confirm('确认删除该成员？任务中该成员的负责人记录不会删除。'))return;
+  members=members.filter(m=>m.id!==id);
+  save(); renderResource();
+}
+
+// MODAL
+function syncMods(){
+  const p=document.getElementById('f-proj-in').value;
+  const proj=projects.find(x=>x.name===p);
+  const ms=(proj&&proj.mods)||[];
+  const modSel=document.getElementById('f-mod-in');
+  modSel.innerHTML='<option value="">选择模块</option>'+ms.map(m=>`<option>${m}</option>`).join('');
+  // also show add-module option if project selected
+  if(p) modSel.innerHTML+='<option value="__new__">＋ 新增模块...</option>';
+  modSel.onchange=function(){
+    if(this.value==='__new__'){
+      const nm=prompt('输入新模块名称：');
+      if(nm&&nm.trim()){
+        const pObj=projects.find(x=>x.name===p);
+        if(pObj&&!pObj.mods.includes(nm.trim())){pObj.mods.push(nm.trim());save();}
+        syncMods();
+        document.getElementById('f-mod-in').value=nm.trim();
+      } else { this.value=''; }
+    }
+  };
+}
+function syncOwners(){
+  const dept=document.getElementById('f-dept-in').value;
+  const matching=members.filter(m=>!dept||m.dept===dept);
+  document.getElementById('f-owner-in').innerHTML='<option value="">未指定</option>'+matching.map(m=>`<option>${m.name}</option>`).join('');
+}
+function populateProjDropdown(selected){
+  const sel=document.getElementById('f-proj-in');
+  sel.innerHTML='<option value="">选择项目</option>'+projects.map(p=>`<option${p.name===selected?' selected':''}>${p.name}</option>`).join('');
+}
+function openAdd(){
+  editId=null;
+  document.getElementById('modal-ttl').textContent='新增任务';
+  document.getElementById('btn-del').style.display='none';
+  document.getElementById('flow-hint').style.display='flex';
+  ['f-mod-in','f-dept-in','f-name','f-note','f-start','f-end'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-owner-in').innerHTML='<option value="">未指定</option>';
+  document.getElementById('f-pri').value='P1';
+  document.getElementById('f-st').value='未开始';
+  document.getElementById('f-days').value='';
+  populateProjDropdown(projFilter||'');
+  syncMods();
+  document.getElementById('overlay').classList.add('show');
+}
+function openEdit(id){
+  const t=tasks.find(x=>x.id===id);if(!t)return;
+  editId=id;
+  document.getElementById('modal-ttl').textContent='编辑任务';
+  document.getElementById('btn-del').style.display='inline-flex';
+  document.getElementById('flow-hint').style.display='none';
+  populateProjDropdown(t.proj); syncMods();
+  document.getElementById('f-mod-in').value=t.mod;
+  document.getElementById('f-name').value=t.name;
+  document.getElementById('f-dept-in').value=t.dept; syncOwners();
+  document.getElementById('f-owner-in').value=t.owner||'';
+  document.getElementById('f-pri').value=t.pri;
+  document.getElementById('f-st').value=t.status;
+  document.getElementById('f-start').value=t.start||'';
+  document.getElementById('f-end').value=t.end||'';
+  document.getElementById('f-days').value=t.days||'';
+  document.getElementById('f-note').value=t.note||'';
+  document.getElementById('overlay').classList.add('show');
+}
+function closeModal(){document.getElementById('overlay').classList.remove('show');}
+function saveTask(){
+  const proj=document.getElementById('f-proj-in').value;
+  const name=document.getElementById('f-name').value.trim();
+  const dept=document.getElementById('f-dept-in').value;
+  const end=document.getElementById('f-end').value;
+  const start=document.getElementById('f-start').value;
+  if(!proj||!name||!dept||!end||!start){alert('请填写项目、任务描述、部门、开始和截止日期');return;}
+  const obj={proj,mod:document.getElementById('f-mod-in').value,name,dept,
+    owner:document.getElementById('f-owner-in').value,
+    pri:document.getElementById('f-pri').value,
+    status:document.getElementById('f-st').value,
+    start,end,
+    days:parseFloat(document.getElementById('f-days').value)||0,
+    note:document.getElementById('f-note').value.trim()};
+  if(editId){const i=tasks.findIndex(t=>t.id===editId);tasks[i]={...tasks[i],...obj};}
+  else tasks.push({id:nextId++,...obj});
+  save(); closeModal(); refresh();
+}
+function delTask(){
+  if(!confirm('确认删除这个任务？'))return;
+  tasks=tasks.filter(t=>t.id!==editId);
+  save(); closeModal(); refresh();
+}
+
+function refresh(){
+  initFilters();
+  if(currentPage==='tasks')renderTasks();
+  else if(currentPage==='gantt')renderGantt();
+  else renderResource();
+}
+
+function setView(v,btn){
+  currentView=v;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const titles={all:'所有任务',dept:'按部门汇总',risk:'风险预警'};
+  document.getElementById('table-title').textContent=titles[v]||'所有任务';
+  renderTasks();
+}
+
+function showPage(page,el){
+  currentPage=page;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  ['tasks','gantt','resource'].forEach(p=>document.getElementById('page-'+p).style.display=p===page?'block':'none');
+  const titles={tasks:'任务跟进',gantt:'甘特图',resource:'人力资源'};
+  document.getElementById('page-title').textContent=titles[page];
+  document.getElementById('task-tabs').style.display=page==='tasks'?'flex':'none';
+  if(page==='tasks')renderTasks();
+  else if(page==='gantt')renderGantt();
+  else renderResource();
+}
+
+function filterProj(proj,el){
+  projFilter=proj;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('f-proj').value=proj;
+  if(currentPage!=='tasks'){showPage('tasks',document.querySelector('.nav-item'));}
+  renderTasks();
+}
+
+function initFilters(){
+  // sidebar project nav
+  const navList=document.getElementById('proj-nav-list');
+  navList.innerHTML=projects.map(p=>`
+    <div class="nav-item" onclick="filterProj('${p.name}',this)" style="justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:9px">
+        <span class="dot" style="background:${p.color}"></span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px">${p.name}</span>
+      </span>
+      <span onclick="event.stopPropagation();openEditProj('${p.id}')" style="opacity:0;font-size:13px;color:var(--gray);padding:0 2px" class="edit-proj-btn" title="编辑项目">✎</span>
+    </div>`).join('');
+  // hover show edit btn
+  navList.querySelectorAll('.nav-item').forEach(item=>{
+    const btn=item.querySelector('.edit-proj-btn');
+    item.addEventListener('mouseenter',()=>{if(btn)btn.style.opacity='1';});
+    item.addEventListener('mouseleave',()=>{if(btn)btn.style.opacity='0';});
+  });
+
+  const projNames=projects.map(p=>p.name);
+  const depts=[...new Set(tasks.map(t=>t.dept))];
+  ['f-proj','g-proj'].forEach(id=>{
+    const el=document.getElementById(id);const v=el.value;
+    el.innerHTML='<option value="">全部项目</option>'+projNames.map(p=>`<option${p===v?' selected':''}>${p}</option>`).join('');
+  });
+  ['f-dept','g-dept'].forEach(id=>{
+    const el=document.getElementById(id);const v=el.value;
+    el.innerHTML='<option value="">全部部门</option>'+depts.map(d=>`<option${d===v?' selected':''}>${d}</option>`).join('');
+  });
+}
+
+</script>
+
+<!-- PROJECT MODAL -->
+<div class="overlay" id="proj-overlay">
+  <div class="modal" style="width:440px">
+    <div class="modal-hd">
+      <h2 id="proj-modal-ttl">新增项目</h2>
+      <button class="modal-close" onclick="closeProjModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>项目名称 <span class="req">*</span></label>
+        <input type="text" id="pf-name" placeholder="例：欧洲杯运营活动">
+      </div>
+      <div class="field"><label>项目颜色 <span class="req">*</span></label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px" id="color-picker">
+          <div class="color-opt active" data-color="#2563eb" style="background:#2563eb" onclick="pickColor(this)"></div>
+          <div class="color-opt" data-color="#16a34a" style="background:#16a34a" onclick="pickColor(this)"></div>
+          <div class="color-opt" data-color="#ea580c" style="background:#ea580c" onclick="pickColor(this)"></div>
+          <div class="color-opt" data-color="#7c3aed" style="background:#7c3aed" onclick="pickColor(this)"></div>
+          <div class="color-opt" data-color="#db2777" style="background:#db2777" onclick="pickColor(this)"></div>
+          <div class="color-opt" data-color="#0891b2" style="background:#0891b2" onclick="pickColor(this)"></div>
+          <div class="color-opt" data-color="#d97706" style="background:#d97706" onclick="pickColor(this)"></div>
+          <div class="color-opt" data-color="#dc2626" style="background:#dc2626" onclick="pickColor(this)"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>初始模块 <span style="font-size:11px;color:var(--gray);font-weight:400">（每行一个，之后可继续添加）</span></label>
+        <textarea id="pf-mods" placeholder="例：&#10;榜单&#10;竞猜&#10;社区评论" style="height:90px"></textarea>
+      </div>
+      <div class="field"><label>项目描述 <span style="font-size:11px;color:var(--gray);font-weight:400">（可选）</span></label>
+        <input type="text" id="pf-desc" placeholder="例：2026年世界杯赛期运营活动">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="proj-btn-del" style="display:none" onclick="delProj()">删除项目</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="closeProjModal()">取消</button>
+        <button class="btn btn-primary btn-sm" onclick="saveProj()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+document.getElementById('proj-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeProjModal();});
+
+// ── PROJECT MODAL ─────────────────────────────────────
+let selectedColor='#2563eb';
+let editProjObj=null;
+
+function pickColor(el){
+  document.querySelectorAll('.color-opt').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  selectedColor=el.dataset.color;
+}
+function openAddProj(){
+  editProjObj=null;
+  document.getElementById('proj-modal-ttl').textContent='新增项目';
+  document.getElementById('proj-btn-del').style.display='none';
+  document.getElementById('pf-name').value='';
+  document.getElementById('pf-mods').value='';
+  document.getElementById('pf-desc').value='';
+  selectedColor='#2563eb';
+  document.querySelectorAll('.color-opt').forEach(e=>e.classList.remove('active'));
+  document.querySelector('.color-opt[data-color="#2563eb"]').classList.add('active');
+  document.getElementById('proj-overlay').classList.add('show');
+}
+function openEditProj(id){
+  const p=projects.find(x=>x.id===id);if(!p)return;
+  editProjObj=p;
+  document.getElementById('proj-modal-ttl').textContent='编辑项目';
+  document.getElementById('proj-btn-del').style.display='inline-flex';
+  document.getElementById('pf-name').value=p.name;
+  document.getElementById('pf-mods').value=(p.mods||[]).join('\n');
+  document.getElementById('pf-desc').value=p.desc||'';
+  selectedColor=p.color||'#2563eb';
+  document.querySelectorAll('.color-opt').forEach(e=>{
+    e.classList.toggle('active',e.dataset.color===selectedColor);
+  });
+  document.getElementById('proj-overlay').classList.add('show');
+}
+function closeProjModal(){document.getElementById('proj-overlay').classList.remove('show');}
+function saveProj(){
+  const name=document.getElementById('pf-name').value.trim();
+  if(!name){alert('请填写项目名称');return;}
+  const modsRaw=document.getElementById('pf-mods').value;
+  const mods=modsRaw.split('\n').map(m=>m.trim()).filter(Boolean);
+  const desc=document.getElementById('pf-desc').value.trim();
+  if(editProjObj){
+    // editing: if name changed, update all tasks referencing old name
+    const oldName=editProjObj.name;
+    if(oldName!==name){
+      tasks.forEach(t=>{if(t.proj===oldName)t.proj=name;});
+    }
+    editProjObj.name=name;
+    editProjObj.color=selectedColor;
+    editProjObj.mods=mods.length?mods:editProjObj.mods;
+    editProjObj.desc=desc;
+  } else {
+    if(projects.find(p=>p.name===name)){alert('项目名称已存在');return;}
+    projects.push({id:'p'+Date.now(),name,color:selectedColor,mods,desc});
+  }
+  rebuildProjMaps();
+  save();
+  closeProjModal();
+  refresh();
+  initFilters();
+}
+function delProj(){
+  if(!editProjObj)return;
+  const taskCount=tasks.filter(t=>t.proj===editProjObj.name).length;
+  if(taskCount>0){
+    if(!confirm(`项目「${editProjObj.name}」下还有 ${taskCount} 个任务，删除项目将同时删除这些任务。确认继续？`))return;
+    tasks=tasks.filter(t=>t.proj!==editProjObj.name);
+  } else {
+    if(!confirm(`确认删除项目「${editProjObj.name}」？`))return;
+  }
+  projects=projects.filter(p=>p.id!==editProjObj.id);
+  rebuildProjMaps();
+  save();
+  closeProjModal();
+  refresh();
+  initFilters();
+}
+const d=TODAY;
+document.getElementById('today-lbl').textContent=`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+load(); initFilters(); renderTasks(); renderResource();
+</script>
+</body>
+</html>
