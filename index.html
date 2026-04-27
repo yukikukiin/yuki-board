@@ -202,6 +202,14 @@ tr:hover td{background:#fafafa;cursor:pointer}
 .dep-tag .rm{cursor:pointer;font-size:13px;line-height:1}
 /* KANBAN FILTER BAR */
 .kanban-filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+/* DATA TOOLBAR */
+.data-toolbar{display:flex;align-items:center;gap:8px}
+.save-indicator{font-size:11px;color:var(--green);display:none;align-items:center;gap:4px}
+.save-indicator.show{display:flex}
+/* MULTI-OWNER */
+.owner-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px}
+.owner-chip{display:inline-flex;align-items:center;gap:3px;background:#eff6ff;color:#1d4ed8;border-radius:4px;padding:2px 7px;font-size:11px}
+.owner-chip .rm{cursor:pointer;font-size:13px;line-height:1}
 </style>
 </head>
 <body>
@@ -267,6 +275,11 @@ tr:hover td{background:#fafafa;cursor:pointer}
           <select id="f-status" onchange="renderTasks()"><option value="">全部状态</option></select>
           <button class="btn btn-blue-outline btn-sm" onclick="openAddProj()">+ 新增项目</button>
           <button class="btn btn-primary btn-sm" onclick="openAdd()">+ 新增任务</button>
+        </div>
+        <div class="data-toolbar">
+          <span class="save-indicator" id="save-indicator">✓ 已保存</span>
+          <button class="btn btn-ghost btn-sm" onclick="exportData()" title="导出数据为JSON备份文件">导出数据</button>
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer" title="从JSON文件导入数据">导入数据<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
         </div>
         <div class="settings-btn" id="settings-btn" onclick="toggleSettingsMenu()">
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -406,8 +419,9 @@ tr:hover td{background:#fafafa;cursor:pointer}
         <div class="field"><label>角色 <span class="req">*</span></label>
           <select id="f-dept-in" onchange="syncOwners()"><option value="">选择部门</option></select>
         </div>
-        <div class="field"><label>负责人</label>
-          <select id="f-owner-in"><option value="">未指定</option></select>
+        <div class="field"><label>负责人 <span style="font-size:11px;color:var(--gray);font-weight:400">（可多选）</span></label>
+          <div class="owner-chips" id="owner-chips"></div>
+          <select id="f-owner-in" onchange="addOwnerFromSelect()" style="width:100%"><option value="">添加负责人...</option></select>
         </div>
       </div>
       <div class="field-row3">
@@ -579,7 +593,9 @@ tr:hover td{background:#fafafa;cursor:pointer}
           <select id="mf-proj"><option value="">不关联</option></select>
         </div>
         <div class="field"><label>参会人</label>
-          <input type="text" id="mf-attendees" placeholder="例：张伟、李娜、王芳">
+          <div class="owner-chips" id="attendee-chips"></div>
+          <select id="mf-attendees-sel" onchange="addAttendee()" style="width:100%"><option value="">添加参会人...</option></select>
+          <input type="hidden" id="mf-attendees">
         </div>
       </div>
       <div class="field"><label>重点结论 / 决策记录</label>
@@ -632,7 +648,7 @@ tr:hover td{background:#fafafa;cursor:pointer}
 </div>
 
 <script>
-const STORAGE='pm_v8';
+const STORAGE='pm_v9';
 const TODAY=new Date(); TODAY.setHours(0,0,0,0);
 
 let tasks=[],members=[],projects=[],departments=[],statuses=[],meetings=[],nextId=50;
@@ -641,7 +657,7 @@ let currentView='all',currentPage='tasks',projFilter='',meetingFilter='all';
 let modalTodos=[],selectedColor='#2563eb',settingsCurrentTab='status';
 let archivedProjListVisible=false,ganttView='month',overviewTab='proj';
 let dragTaskId=null;
-let editingDeps=[],editingMs=[];
+let editingDeps=[],editingMs=[],editingOwners=[],editingAttendees=[];
 
 let PROJ_C={},PROJ_BG={};
 
@@ -700,7 +716,7 @@ function load(){
     departments=d.departments||SEED_DEPTS.map(x=>({...x}));
     statuses=d.statuses||SEED_STATUSES.map(x=>({...x}));
     projects=(d.projects||SEED_PROJECTS.map(x=>({...x}))).map(p=>({archived:false,milestones:[],...p}));
-    tasks=(d.tasks||SEED_TASKS.map(x=>({...x}))).map(t=>({deps:[],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:'',...t}));
+    tasks=(d.tasks||SEED_TASKS.map(x=>({...x}))).map(t=>{const base={deps:[],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:'',owners:[],...t};if(!base.owners||!Array.isArray(base.owners)){base.owners=base.owner?[base.owner]:[]}; return base;});
     members=d.members||SEED_MEMBERS.map(x=>({...x}));
     meetings=d.meetings||[];
     nextId=d.nextId||50;
@@ -711,7 +727,7 @@ function load(){
   }
   rebuildMaps();
 }
-function save(){try{localStorage.setItem(STORAGE,JSON.stringify({departments,statuses,projects,tasks,members,meetings,nextId}));}catch(e){}}
+function save(){try{localStorage.setItem(STORAGE,JSON.stringify({departments,statuses,projects,tasks,members,meetings,nextId}));showSaved();}catch(e){}}
 
 function hexToRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return{r,g,b};}
 function colorToLight(hex){const{r,g,b}=hexToRgb(hex);return`rgb(${Math.round(r*.12+240)},${Math.round(g*.12+240)},${Math.round(b*.12+240)})`;}
@@ -743,26 +759,44 @@ function dayChip(t){
 
 // ── STATS ──────────────────────────────────────────────
 function renderStats(){
-  const ov=tasks.filter(t=>!isCompletedStatus(t.status)&&dl(t.end)<0).length;
-  const wn=tasks.filter(t=>!isCompletedStatus(t.status)&&dl(t.end)>=0&&dl(t.end)<=3).length;
-  const ac=tasks.filter(t=>!isCompletedStatus(t.status)&&!isRiskStatus(t.status)).length;
+  const ov=tasks.filter(t=>!isCompletedStatus(t.status)&&t.end&&dl(t.end)<0).length;
+  const wn=tasks.filter(t=>!isCompletedStatus(t.status)&&t.end&&dl(t.end)>=0&&dl(t.end)<=3).length;
+  const doingGroups=['doing'];
+  const ac=tasks.filter(t=>!isCompletedStatus(t.status)).length;
   const dn=tasks.filter(t=>isCompletedStatus(t.status)).length;
-  const ua=tasks.filter(t=>!isCompletedStatus(t.status)&&!t.owner).length;
+  const ua=tasks.filter(t=>!isCompletedStatus(t.status)&&(!t.owners||t.owners.length===0)&&!t.owner).length;
   const riskCount=tasks.filter(t=>t.riskLevel==='高'&&!isCompletedStatus(t.status)).length;
   document.getElementById('stats').innerHTML=`
-    <div class="stat-card"><div class="stat-n">${tasks.length}</div><div class="stat-l">全部任务</div></div>
+    <div class="stat-card clickable" onclick="filterAllTasks()"><div class="stat-n">${tasks.length}</div><div class="stat-l">全部任务</div></div>
     <div class="stat-card clickable" onclick="setViewAndFilter('risk')"><div class="stat-n red">${ov}</div><div class="stat-l">已逾期</div></div>
     <div class="stat-card clickable" onclick="setViewAndFilter('risk')"><div class="stat-n amber">${wn}</div><div class="stat-l">3天内到期</div></div>
-    <div class="stat-card"><div class="stat-n blue">${ac}</div><div class="stat-l">进行中</div></div>
+    <div class="stat-card clickable" onclick="filterActiveTasks()"><div class="stat-n blue">${ac}</div><div class="stat-l">进行中</div></div>
     <div class="stat-card clickable" onclick="filterUnassigned()"><div class="stat-n purple">${ua}</div><div class="stat-l">未分配负责人</div></div>
     <div class="stat-card clickable" onclick="filterByHighRisk()" style="${riskCount?'border-color:#fca5a5':''}"><div class="stat-n ${riskCount?'red':'green'}">${riskCount}</div><div class="stat-l">高风险任务</div></div>`;
+}
+function filterAllTasks(){
+  ['f-status','f-proj','f-dept'].forEach(id=>document.getElementById(id).value='');
+  currentView='all';document.querySelectorAll('#task-tabs .tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.getElementById('table-title').textContent='所有任务';renderTasks();
+}
+function filterActiveTasks(){
+  document.getElementById('f-proj').value='';document.getElementById('f-dept').value='';
+  // filter tasks that are not completed and not risk
+  currentView='all';document.querySelectorAll('#task-tabs .tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.getElementById('table-title').textContent='进行中任务';
+  const doing=statuses.filter(s=>s.group==='doing').map(s=>s.name);
+  const data=tasks.filter(t=>doing.includes(t.status));
+  document.getElementById('task-count').textContent=`共 ${data.length} 条`;
+  document.getElementById('f-status').value='';
+  document.getElementById('task-table').innerHTML=TABLE_HDR+taskTableRows(data.sort((a,b)=>(a.end||'9').localeCompare(b.end||'9')))+'</tbody></table>';
+  renderStats();
 }
 function setViewAndFilter(v){currentView=v;document.querySelectorAll('#task-tabs .tab-btn').forEach(b=>b.classList.remove('active'));document.getElementById('table-title').textContent='风险预警';renderTasks();}
 function filterUnassigned(){
   ['f-status','f-proj','f-dept'].forEach(id=>document.getElementById(id).value='');
   currentView='all';document.querySelectorAll('#task-tabs .tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
   document.getElementById('table-title').textContent='未分配负责人';
-  const data=tasks.filter(t=>!isCompletedStatus(t.status)&&!t.owner);
+  const data=tasks.filter(t=>!isCompletedStatus(t.status)&&(!t.owners||t.owners.length===0)&&!t.owner);
   document.getElementById('task-count').textContent=`共 ${data.length} 条`;
   const rows=data.map(t=>`<tr onclick="openEdit(${t.id})">
     <td><div style="font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</div><div style="font-size:11px;color:var(--gray)">${t.proj} · ${t.mod}</div></td>
@@ -786,10 +820,10 @@ function getFiltered(){
   const p=document.getElementById('f-proj').value,d=document.getElementById('f-dept').value,s=document.getElementById('f-status').value;
   return tasks.filter(t=>(!p||t.proj===p)&&(!d||t.dept===d)&&(!s||t.status===s));
 }
-function ownerCell(t){if(t.owner)return`<span style="font-size:12px;color:var(--gray)">${t.owner}</span>`;return`<span class="assign-link" onclick="event.stopPropagation();openAssign(${t.id})">去分配</span>`;}
+function ownerCell(t){const owners=t.owners&&t.owners.length?t.owners:(t.owner?[t.owner]:[]);if(owners.length)return owners.map(o=>`<span style="font-size:12px;color:var(--gray);margin-right:2px">${o}</span>`).join('');return`<span class="assign-link" onclick="event.stopPropagation();openAssign(${t.id})">去分配</span>`;}
 function taskTableRows(list){
   return list.map(t=>`<tr onclick="openEdit(${t.id})">
-    <td><div style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}${t.note?`<span class="note-chip" title="${t.note}"></span>`:''}</div><div style="font-size:11px;color:var(--gray)">${t.mod}</div></td>
+    <td><div style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}${t.note?`<span class="note-chip" title="${t.note}"></span>`:''}</div><div style="font-size:11px;color:var(--gray)">${t.proj}${t.mod?' · '+t.mod:''}</div></td>
     <td>${deptPill(t.dept)}</td><td>${ownerCell(t)}</td><td>${priPill(t.pri)}</td>
     <td style="font-size:12px">${fmt(t.start)}</td><td style="font-size:12px">${fmt(t.end)}</td>
     <td style="font-weight:500;color:var(--blue)">${t.days?t.days+'天':'—'}</td>
@@ -846,7 +880,7 @@ function renderKanban(){
       <div style="font-weight:500;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</div>
       <div style="font-size:11px;color:var(--gray);display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${deptPill(t.dept)}
-        ${t.owner?`<span>${t.owner}</span>`:'<span style="color:#dc2626">未分配</span>'}
+        ${(t.owners&&t.owners.length?t.owners:(t.owner?[t.owner]:[])).length?(t.owners&&t.owners.length?t.owners:[t.owner]).join('、'):'<span style="color:#dc2626">未分配</span>'}
         ${t.end?`<span>${fmt(t.end)}</span>`:''}
         ${riskBadge(t.riskLevel)}
         ${dayChip(t)}
@@ -1076,7 +1110,7 @@ function renderResource(){
   if(rProj){filteredMembers=filteredMembers.filter(m=>tasks.some(t=>t.owner===m.name&&t.proj===rProj));}
   if(!filteredMembers.length){grid.innerHTML='<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">无匹配成员</div>';return;}
   grid.innerHTML=filteredMembers.map(m=>{
-    const myTasks=tasks.filter(t=>t.owner===m.name&&!isCompletedStatus(t.status));
+    const myTasks=tasks.filter(t=>!isCompletedStatus(t.status)&&((t.owners&&t.owners.includes(m.name))||t.owner===m.name));
     const totalDays=myTasks.reduce((s,t)=>s+(t.days||0),0);
     const threshold=m.threshold||20;
     const loadPct=Math.min(100,Math.round(totalDays/threshold*100));
@@ -1162,7 +1196,10 @@ function openAddMeeting(){
   editMeetingId=null;modalTodos=[];
   document.getElementById('meeting-modal-ttl').textContent='新建会议纪要';
   document.getElementById('meeting-btn-del').style.display='none';
-  ['mf-title','mf-attendees','mf-summary','mf-risk','mf-todo-input'].forEach(id=>document.getElementById(id).value='');
+  ['mf-title','mf-summary','mf-risk','mf-todo-input'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('mf-attendees').value='';
+  editingAttendees=[];
+  renderAttendeeChips();
   document.getElementById('mf-date').value=TODAY.toISOString().slice(0,10);
   document.getElementById('mf-proj').innerHTML='<option value="">不关联</option>'+activeProjects().map(p=>`<option>${p.name}</option>`).join('');
   const openTodos=getOpenTodos();const cs=document.getElementById('carried-section');
@@ -1175,6 +1212,8 @@ function openEditMeeting(id){
   editMeetingId=id;modalTodos=(m.todos||[]).map(t=>({...t}));
   document.getElementById('meeting-modal-ttl').textContent='编辑会议纪要';document.getElementById('meeting-btn-del').style.display='inline-flex';
   document.getElementById('mf-title').value=m.title;document.getElementById('mf-date').value=m.date;
+  editingAttendees=(m.attendees||'').split('、').filter(Boolean);
+  renderAttendeeChips();
   document.getElementById('mf-attendees').value=m.attendees||'';document.getElementById('mf-summary').value=m.summary||'';document.getElementById('mf-risk').value=m.risk||'';
   document.getElementById('mf-proj').innerHTML='<option value="">不关联</option>'+activeProjects().map(p=>`<option${p.name===m.proj?' selected':''}>${p.name}</option>`).join('');
   document.getElementById('carried-section').style.display='none';
@@ -1194,7 +1233,7 @@ function renderModalTodos(){
 function saveMeeting(){
   const title=document.getElementById('mf-title').value.trim();const date=document.getElementById('mf-date').value;
   if(!title||!date){alert('请填写会议主题和时间');return;}
-  const obj={title,date,proj:document.getElementById('mf-proj').value,attendees:document.getElementById('mf-attendees').value.trim(),summary:document.getElementById('mf-summary').value.trim(),risk:document.getElementById('mf-risk').value.trim(),todos:modalTodos.map(t=>({...t}))};
+  const obj={title,date,proj:document.getElementById('mf-proj').value,attendees:editingAttendees.join('、'),summary:document.getElementById('mf-summary').value.trim(),risk:document.getElementById('mf-risk').value.trim(),todos:modalTodos.map(t=>({...t}))};
   if(editMeetingId){const i=meetings.findIndex(x=>x.id===editMeetingId);meetings[i]={...meetings[i],...obj};}
   else meetings.push({id:'m'+Date.now(),...obj,_expanded:true});
   save();closeMeetingModal();renderMeeting();
@@ -1204,12 +1243,22 @@ function delMeeting(){if(!confirm('确认删除此会议纪要？'))return;meeti
 // ── ASSIGN ─────────────────────────────────────────────
 function openAssign(taskId){
   assignTaskId=taskId;const sel=document.getElementById('assign-member');
-  sel.innerHTML='<option value="">未指定</option>'+members.map(m=>`<option>${m.name}</option>`).join('');
-  const t=tasks.find(x=>x.id===taskId);if(t&&t.owner)sel.value=t.owner;
+  const t=tasks.find(x=>x.id===taskId);
+  const filtered=t&&t.dept?members.filter(m=>m.dept===t.dept):members;
+  sel.innerHTML='<option value="">未指定</option>'+filtered.map(m=>`<option>${m.name}</option>`).join('');
+  if(t&&t.owner)sel.value=t.owner;
   document.getElementById('assign-overlay').classList.add('show');
 }
 function closeAssign(){document.getElementById('assign-overlay').classList.remove('show');}
-function confirmAssign(){const t=tasks.find(x=>x.id===assignTaskId);if(!t)return;t.owner=document.getElementById('assign-member').value;save();closeAssign();refresh();}
+function confirmAssign(){
+  const t=tasks.find(x=>x.id===assignTaskId);if(!t)return;
+  const v=document.getElementById('assign-member').value;
+  t.owner=v;
+  if(!t.owners)t.owners=[];
+  if(v&&!t.owners.includes(v))t.owners=[v];
+  else if(!v)t.owners=[];
+  save();closeAssign();refresh();
+}
 
 // ── SETTINGS ───────────────────────────────────────────
 function toggleSettingsMenu(){document.getElementById('settings-dropdown').classList.toggle('open');}
@@ -1291,14 +1340,28 @@ function syncMods(){
     }
   };
 }
-function syncOwners(){const dept=document.getElementById('f-dept-in').value;const matching=members.filter(m=>!dept||m.dept===dept);document.getElementById('f-owner-in').innerHTML='<option value="">未指定</option>'+matching.map(m=>`<option>${m.name}</option>`).join('');}
+function syncOwners(){
+  const dept=document.getElementById('f-dept-in').value;
+  const matching=members.filter(m=>!dept||m.dept===dept);
+  const chips=document.getElementById('owner-chips');
+  const sel=document.getElementById('f-owner-in');
+  if(!chips||!sel)return;
+  chips.innerHTML=editingOwners.map(o=>`<span class="owner-chip">${o}<span class="rm" onclick="removeOwner('${o}')">×</span></span>`).join('');
+  sel.innerHTML='<option value="">添加负责人...</option>'+matching.filter(m=>!editingOwners.includes(m.name)).map(m=>`<option>${m.name}</option>`).join('');
+}
+function addOwnerFromSelect(){
+  const sel=document.getElementById('f-owner-in');const v=sel.value;if(!v)return;
+  if(!editingOwners.includes(v))editingOwners.push(v);
+  sel.value='';syncOwners();
+}
+function removeOwner(name){editingOwners=editingOwners.filter(x=>x!==name);syncOwners();}
 function populateStatusSelect(current){document.getElementById('f-st').innerHTML=statuses.map(s=>`<option${s.name===current?' selected':''}>${s.name}</option>`).join('');}
 function populateDeptSelect(el,current){el.innerHTML='<option value="">选择部门</option>'+departments.filter(d=>!d.archived).map(d=>`<option${d.name===current?' selected':''}>${d.name}</option>`).join('');}
 function populateProjDropdown(selected){document.getElementById('f-proj-in').innerHTML='<option value="">选择项目</option>'+activeProjects().map(p=>`<option${p.name===selected?' selected':''}>${p.name}</option>`).join('');}
 function openAdd(){
   editId=null;document.getElementById('modal-ttl').textContent='新增任务';document.getElementById('btn-del').style.display='none';document.getElementById('flow-hint').style.display='flex';
   ['f-mod-in','f-name','f-note','f-start','f-end'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('f-owner-in').innerHTML='<option value="">未指定</option>';
+  editingOwners=[];syncOwners();
   document.getElementById('f-pri').value='P1';document.getElementById('f-days').value='';
   ['f-risk-level','f-risk-deadline','f-risk-action','f-risk-support'].forEach(id=>document.getElementById(id).value='');
   editingDeps=[];renderDepTags(null);
@@ -1310,7 +1373,8 @@ function openEdit(id){
   document.getElementById('modal-ttl').textContent='编辑任务';document.getElementById('btn-del').style.display='inline-flex';document.getElementById('flow-hint').style.display='none';
   populateProjDropdown(t.proj);syncMods();document.getElementById('f-mod-in').value=t.mod;
   document.getElementById('f-name').value=t.name;populateDeptSelect(document.getElementById('f-dept-in'),t.dept);syncOwners();
-  document.getElementById('f-owner-in').value=t.owner||'';document.getElementById('f-pri').value=t.pri;populateStatusSelect(t.status);
+  editingOwners=(t.owners&&t.owners.length?t.owners:(t.owner?[t.owner]:[])).slice();syncOwners();
+  document.getElementById('f-pri').value=t.pri;populateStatusSelect(t.status);
   document.getElementById('f-start').value=t.start||'';document.getElementById('f-end').value=t.end||'';
   document.getElementById('f-days').value=t.days||'';document.getElementById('f-note').value=t.note||'';
   document.getElementById('f-risk-level').value=t.riskLevel||'';
@@ -1325,7 +1389,7 @@ function saveTask(){
   const proj=document.getElementById('f-proj-in').value,name=document.getElementById('f-name').value.trim();
   const dept=document.getElementById('f-dept-in').value,end=document.getElementById('f-end').value,start=document.getElementById('f-start').value;
   if(!proj||!name||!dept||!end||!start){alert('请填写项目、任务描述、部门、开始和截止日期');return;}
-  const obj={proj,mod:document.getElementById('f-mod-in').value,name,dept,owner:document.getElementById('f-owner-in').value,pri:document.getElementById('f-pri').value,status:document.getElementById('f-st').value,start,end,days:parseFloat(document.getElementById('f-days').value)||0,note:document.getElementById('f-note').value.trim(),deps:editingDeps.slice(),riskLevel:document.getElementById('f-risk-level').value,riskAction:document.getElementById('f-risk-action').value.trim(),riskDeadline:document.getElementById('f-risk-deadline').value,riskSupport:document.getElementById('f-risk-support').value.trim()};
+  const obj={proj,mod:document.getElementById('f-mod-in').value,name,dept,owner:editingOwners[0]||'',owners:editingOwners.slice(),pri:document.getElementById('f-pri').value,status:document.getElementById('f-st').value,start,end,days:parseFloat(document.getElementById('f-days').value)||0,note:document.getElementById('f-note').value.trim(),deps:editingDeps.slice(),riskLevel:document.getElementById('f-risk-level').value,riskAction:document.getElementById('f-risk-action').value.trim(),riskDeadline:document.getElementById('f-risk-deadline').value,riskSupport:document.getElementById('f-risk-support').value.trim()};
   if(editId){const i=tasks.findIndex(t=>t.id===editId);const oldEnd=tasks[i].end;tasks[i]={...tasks[i],...obj};if(oldEnd!==end)cascadeSchedule(tasks[i].id);}
   else tasks.push({id:nextId++,...obj});
   save();closeModal();refresh();
@@ -1392,6 +1456,15 @@ function showPage(page,el){
   document.getElementById('topbar-filters').style.display=page==='tasks'?'flex':'none';
   if(page==='tasks')renderTasks();else if(page==='kanban')renderKanban();else if(page==='gantt')renderGantt();else if(page==='resource')renderResource();else if(page==='meeting')renderMeeting();else if(page==='overview')renderOverview();
 }
+function filterProjById(projId,el){
+  const p=projects.find(x=>x.id===projId);if(!p)return;
+  projFilter=p.name;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('f-proj').value=p.name;
+  if(currentPage!=='tasks'){currentPage='tasks';['tasks','kanban','gantt','resource','meeting','overview'].forEach(pg=>document.getElementById('page-'+pg).style.display=pg==='tasks'?'block':'none');document.getElementById('page-title').textContent='任务跟进';document.getElementById('task-tabs').style.display='flex';document.getElementById('topbar-filters').style.display='flex';}
+  renderTasks();
+}
 function filterProj(proj,el){
   projFilter=proj;document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));el.classList.add('active');
   document.getElementById('f-proj').value=proj;if(currentPage!=='tasks')showPage('tasks',document.querySelector('.nav-item'));renderTasks();
@@ -1401,12 +1474,19 @@ function toggleArchivedProjList(){archivedProjListVisible=!archivedProjListVisib
 function initFilters(){
   const navList=document.getElementById('proj-nav-list');const active=activeProjects();
   navList.innerHTML=active.map(p=>`
-    <div class="nav-item" onclick="filterProj('${p.name}',this)" style="justify-content:space-between">
+    <div class="nav-item" data-proj-id="${p.id}" style="justify-content:space-between">
       <span style="display:flex;align-items:center;gap:9px"><span class="dot" style="background:${p.color}"></span>
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:118px">${p.name}</span></span>
-      <span onclick="event.stopPropagation();openEditProj('${p.id}')" style="opacity:0;font-size:13px;color:var(--gray);padding:0 2px" class="edit-proj-btn">✎</span>
+      <span data-edit-proj="${p.id}" style="opacity:0;font-size:13px;color:var(--gray);padding:0 2px" class="edit-proj-btn">✎</span>
     </div>`).join('');
-  navList.querySelectorAll('.nav-item').forEach(item=>{const btn=item.querySelector('.edit-proj-btn');item.addEventListener('mouseenter',()=>{if(btn)btn.style.opacity='1';});item.addEventListener('mouseleave',()=>{if(btn)btn.style.opacity='0';});});
+  navList.querySelectorAll('.nav-item[data-proj-id]').forEach(item=>{
+    const projId=item.dataset.projId;
+    const editBtn=item.querySelector('.edit-proj-btn');
+    item.addEventListener('click',e=>{if(e.target.dataset.editProj)return;const p=projects.find(x=>x.id===projId);if(p)filterProjById(projId,item);});
+    item.addEventListener('mouseenter',()=>{if(editBtn)editBtn.style.opacity='1';});
+    item.addEventListener('mouseleave',()=>{if(editBtn)editBtn.style.opacity='0';});
+    if(editBtn)editBtn.addEventListener('click',e=>{e.stopPropagation();openEditProj(projId);});
+  });
   const archived=projects.filter(p=>p.archived);
   document.getElementById('archived-proj-section').style.display=archived.length?'block':'none';
   document.getElementById('archived-count').textContent=archived.length;
@@ -1513,7 +1593,7 @@ function projStats(projName){
   const totalDays=pt.reduce((s,t)=>s+(t.days||0),0);
   const doneDays=pt.filter(t=>isCompletedStatus(t.status)).reduce((s,t)=>s+(t.days||0),0);
   const pct=totalDays?Math.round(doneDays/totalDays*100):(pt.length?Math.round(pt.filter(t=>isCompletedStatus(t.status)).length/pt.length*100):0);
-  const overdue=pt.filter(t=>!isCompletedStatus(t.status)&&dl(t.end)<0).length;
+  const overdue=pt.filter(t=>!isCompletedStatus(t.status)&&t.end&&dl(t.end)<0).length;
   const ends=pt.filter(t=>t.end).map(t=>t.end);
   const latestEnd=ends.length?ends.sort().reverse()[0]:null;
   // Predict finish: remaining days / avg throughput
@@ -1604,6 +1684,50 @@ function renderOverviewByRole(el){
     </tr>`;
   }).join('')+'</tbody></table></div>';
 }
+function exportData(){
+  const data={departments,statuses,projects,tasks,members,meetings,nextId,exportedAt:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`pm-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();
+}
+function importData(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(!d.tasks||!d.projects){alert('文件格式不正确');return;}
+      if(!confirm(`确认导入？当前数据将被覆盖。\n备份时间：${d.exportedAt||'未知'}`))return;
+      departments=d.departments||departments;statuses=d.statuses||statuses;
+      projects=(d.projects||[]).map(p=>({archived:false,milestones:[],...p}));
+      tasks=(d.tasks||[]).map(t=>({deps:[],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:'',owners:[],...t,owners:t.owners||(t.owner?[t.owner]:[]) }));
+      members=d.members||members;meetings=d.meetings||[];nextId=d.nextId||nextId;
+      rebuildMaps();save();refresh();initFilters();
+      alert('导入成功！');
+    }catch(err){alert('导入失败：'+err.message);}
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+function showSaved(){
+  const el=document.getElementById('save-indicator');
+  el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2000);
+}
+function renderAttendeeChips(){
+  const chips=document.getElementById('attendee-chips');
+  const sel=document.getElementById('mf-attendees-sel');
+  if(!chips||!sel)return;
+  chips.innerHTML=editingAttendees.map(a=>`<span class="owner-chip">${a}<span class="rm" onclick="removeAttendee('${a}')">×</span></span>`).join('');
+  sel.innerHTML='<option value="">添加参会人...</option>'+members.filter(m=>!editingAttendees.includes(m.name)).map(m=>`<option>${m.name}</option>`).join('');
+  document.getElementById('mf-attendees').value=editingAttendees.join('、');
+}
+function addAttendee(){
+  const sel=document.getElementById('mf-attendees-sel');const v=sel.value;if(!v)return;
+  if(!editingAttendees.includes(v))editingAttendees.push(v);
+  sel.value='';renderAttendeeChips();
+}
+function removeAttendee(name){editingAttendees=editingAttendees.filter(x=>x!==name);renderAttendeeChips();}
+
 document.addEventListener('click',e=>{if(!document.getElementById('settings-btn').contains(e.target))document.getElementById('settings-dropdown').classList.remove('open');});
 ['overlay','proj-overlay','settings-overlay','meeting-overlay','assign-overlay'].forEach(id=>{document.getElementById(id).addEventListener('click',e=>{if(e.target===e.currentTarget)e.target.classList.remove('show');});});
 
