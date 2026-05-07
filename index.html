@@ -210,6 +210,25 @@ tr:hover td{background:#fafafa;cursor:pointer}
 .owner-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px}
 .owner-chip{display:inline-flex;align-items:center;gap:3px;background:#eff6ff;color:#1d4ed8;border-radius:4px;padding:2px 7px;font-size:11px}
 .owner-chip .rm{cursor:pointer;font-size:13px;line-height:1}
+/* QUICK INPUT */
+.quick-input-btn{background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.quick-input-btn:hover{opacity:.9}
+.quick-input-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:flex-end;justify-content:center}
+.quick-input-overlay.show{display:flex}
+.quick-input-panel{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:680px;padding:20px 24px 32px;box-shadow:0 -8px 40px rgba(0,0,0,.2)}
+.quick-input-panel h3{font-size:15px;font-weight:600;margin-bottom:4px}
+.quick-input-panel p{font-size:12px;color:var(--gray);margin-bottom:14px}
+.quick-input-textarea{width:100%;min-height:100px;padding:12px 14px;border:1.5px solid #7c3aed;border-radius:10px;font-size:14px;font-family:inherit;resize:none;outline:none;color:#111;line-height:1.6}
+.quick-input-textarea:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.quick-input-actions{display:flex;gap:10px;margin-top:12px;align-items:center}
+.quick-input-hint{font-size:11px;color:var(--gray);flex:1}
+.qi-result{background:#f8faff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;margin-top:12px;font-size:13px;display:none}
+.qi-result.show{display:block}
+.qi-field{display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid #e5e7eb}
+.qi-field:last-child{border:none}
+.qi-label{font-weight:500;min-width:72px;color:var(--gray);font-size:12px;padding-top:2px}
+.qi-val{flex:1;color:#111}
+.qi-loading{text-align:center;padding:16px;color:var(--gray);font-size:13px}
 </style>
 </head>
 <body>
@@ -275,6 +294,7 @@ tr:hover td{background:#fafafa;cursor:pointer}
           <select id="f-status" onchange="renderTasks()"><option value="">全部状态</option></select>
           <button class="btn btn-blue-outline btn-sm" onclick="openAddProj()">+ 新增项目</button>
           <button class="btn btn-primary btn-sm" onclick="openAdd()">+ 新增任务</button>
+          <button class="quick-input-btn" onclick="openQuickInput()" title="用文字描述快速创建任务">✨ 文字创建</button>
         </div>
         <div class="data-toolbar">
           <span class="save-indicator" id="save-indicator">✓ 已保存</span>
@@ -648,7 +668,7 @@ tr:hover td{background:#fafafa;cursor:pointer}
 </div>
 
 <script>
-const STORAGE='pm_v9';
+const STORAGE='pm_v11';
 const TODAY=new Date(); TODAY.setHours(0,0,0,0);
 
 let tasks=[],members=[],projects=[],departments=[],statuses=[],meetings=[],nextId=50;
@@ -682,25 +702,30 @@ const SEED_PROJECTS=[
   {id:'p3',name:'澳洲Pro活动',color:'#ea580c',mods:['欢迎赠金','月度活动'],desc:'',archived:false,milestones:[{id:'ms6',name:'活动上线',start:'2026-05-20',end:'2026-05-20'}]},
 ];
 const SEED_TASKS=[
-  {id:1,proj:'世界杯运营活动',mod:'榜单',dept:'产品',name:'需求文档 & 原型',owner:'',pri:'P0',start:'2026-04-15',end:'2026-05-05',status:'进行中',days:1,note:''},
-  {id:2,proj:'世界杯运营活动',mod:'榜单',dept:'UI',name:'视觉设计 & 切图',owner:'',pri:'P0',start:'2026-05-06',end:'2026-05-12',status:'未开始',days:2,note:''},
-  {id:3,proj:'世界杯运营活动',mod:'榜单',dept:'开发',name:'前端实现',owner:'',pri:'P0',start:'2026-05-13',end:'2026-05-22',status:'未开始',days:3,note:''},
-  {id:4,proj:'世界杯运营活动',mod:'榜单',dept:'开发',name:'后端接口',owner:'',pri:'P0',start:'2026-05-13',end:'2026-05-20',status:'未开始',days:3,note:''},
-  {id:5,proj:'世界杯运营活动',mod:'榜单',dept:'测试',name:'测试执行',owner:'',pri:'P0',start:'2026-05-23',end:'2026-05-27',status:'未开始',days:2,note:''},
-  {id:6,proj:'世界杯运营活动',mod:'竞猜',dept:'产品',name:'需求文档 & 原型',owner:'',pri:'P0',start:'2026-04-15',end:'2026-05-03',status:'进行中',days:1,note:''},
-  {id:7,proj:'世界杯运营活动',mod:'竞猜',dept:'UI',name:'视觉设计',owner:'',pri:'P0',start:'2026-05-04',end:'2026-05-10',status:'未开始',days:2,note:''},
-  {id:8,proj:'世界杯运营活动',mod:'竞猜',dept:'开发',name:'前端 & 后端实现',owner:'',pri:'P0',start:'2026-05-11',end:'2026-05-25',status:'未开始',days:5,note:''},
-  {id:9,proj:'世界杯运营活动',mod:'社区评论',dept:'开发',name:'评论组件开发',owner:'',pri:'P1',start:'2026-05-18',end:'2026-05-28',status:'未开始',days:2,note:''},
-  {id:10,proj:'石油专题页',mod:'专题页',dept:'产品',name:'需求文档',owner:'',pri:'P0',start:'2026-04-15',end:'2026-04-22',status:'进行中',days:1,note:''},
-  {id:11,proj:'石油专题页',mod:'专题页',dept:'UI',name:'页面视觉设计',owner:'',pri:'P0',start:'2026-04-23',end:'2026-04-28',status:'未开始',days:2,note:''},
-  {id:12,proj:'石油专题页',mod:'专题页',dept:'开发',name:'前端页面开发',owner:'',pri:'P0',start:'2026-04-29',end:'2026-05-08',status:'未开始',days:3,note:''},
-  {id:13,proj:'石油专题页',mod:'专题页',dept:'测试',name:'功能 & 数据测试',owner:'',pri:'P0',start:'2026-05-09',end:'2026-05-13',status:'未开始',days:1,note:''},
-  {id:14,proj:'澳洲Pro活动',mod:'欢迎赠金',dept:'产品',name:'需求文档 & 规则',owner:'',pri:'P0',start:'2026-04-10',end:'2026-04-20',status:'已延期',days:1,note:'等待合规审核'},
-  {id:15,proj:'澳洲Pro活动',mod:'欢迎赠金',dept:'UI',name:'活动页视觉设计',owner:'',pri:'P0',start:'2026-04-22',end:'2026-04-30',status:'未开始',days:2,note:''},
-  {id:16,proj:'澳洲Pro活动',mod:'欢迎赠金',dept:'开发',name:'赠金发放逻辑',owner:'',pri:'P0',start:'2026-05-01',end:'2026-05-12',status:'未开始',days:3,note:''},
-  {id:17,proj:'澳洲Pro活动',mod:'月度活动',dept:'产品',name:'需求文档',owner:'',pri:'P1',start:'2026-04-20',end:'2026-04-30',status:'进行中',days:1,note:''},
-  {id:18,proj:'澳洲Pro活动',mod:'月度活动',dept:'UI',name:'视觉设计',owner:'',pri:'P1',start:'2026-05-01',end:'2026-05-10',status:'未开始',days:2,note:''},
-  {id:19,proj:'澳洲Pro活动',mod:'月度活动',dept:'开发',name:'活动逻辑开发',owner:'',pri:'P1',start:'2026-05-11',end:'2026-05-22',status:'未开始',days:3,note:'',deps:[],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  // 世界杯 榜单 — 有依赖链: 1→2→3,4→5
+  {id:1,proj:'世界杯运营活动',mod:'榜单',dept:'产品',name:'需求文档 & 原型',owner:'王芳',owners:['王芳'],pri:'P0',start:'2026-04-15',end:'2026-05-05',status:'进行中',days:1,note:'',deps:[],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  {id:2,proj:'世界杯运营活动',mod:'榜单',dept:'UI',name:'视觉设计 & 切图',owner:'李娜',owners:['李娜'],pri:'P0',start:'2026-05-06',end:'2026-05-12',status:'未开始',days:2,note:'',deps:[1],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  {id:3,proj:'世界杯运营活动',mod:'榜单',dept:'开发',name:'前端实现',owner:'张伟',owners:['张伟'],pri:'P0',start:'2026-05-13',end:'2026-05-22',status:'未开始',days:3,note:'',deps:[2],riskLevel:'中',riskAction:'预留充足联调时间',riskDeadline:'2026-05-20',riskSupport:'需要UI提前出标注'},
+  {id:4,proj:'世界杯运营活动',mod:'榜单',dept:'开发',name:'后端接口',owner:'张伟',owners:['张伟'],pri:'P0',start:'2026-05-06',end:'2026-05-15',status:'未开始',days:3,note:'',deps:[1],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  {id:5,proj:'世界杯运营活动',mod:'榜单',dept:'测试',name:'测试执行',owner:'陈磊',owners:['陈磊'],pri:'P0',start:'2026-05-23',end:'2026-05-27',status:'未开始',days:2,note:'',deps:[3,4],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  // 世界杯 竞猜
+  {id:6,proj:'世界杯运营活动',mod:'竞猜',dept:'产品',name:'需求文档 & 原型',owner:'王芳',owners:['王芳'],pri:'P0',start:'2026-04-15',end:'2026-05-03',status:'进行中',days:1,note:'',deps:[],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  {id:7,proj:'世界杯运营活动',mod:'竞猜',dept:'UI',name:'视觉设计',owner:'李娜',owners:['李娜'],pri:'P0',start:'2026-05-04',end:'2026-05-10',status:'未开始',days:2,note:'',deps:[6],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  {id:8,proj:'世界杯运营活动',mod:'竞猜',dept:'开发',name:'竞猜逻辑 & 结算',owner:'张伟',owners:['张伟'],pri:'P0',start:'2026-05-11',end:'2026-05-25',status:'未开始',days:5,note:'结算逻辑复杂，需提前对接数据团队',deps:[7],riskLevel:'高',riskAction:'提前与数据团队同步接口规范',riskDeadline:'2026-05-12',riskSupport:'需要数据团队提供赔率API'},
+  {id:9,proj:'世界杯运营活动',mod:'社区评论',dept:'开发',name:'评论组件开发',owner:'',owners:[],pri:'P1',start:'2026-05-18',end:'2026-05-28',status:'未开始',days:2,note:'',deps:[],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  // 石油专题页 — 逾期任务用于测试
+  {id:10,proj:'石油专题页',mod:'专题页',dept:'产品',name:'需求文档',owner:'王芳',owners:['王芳'],pri:'P0',start:'2026-04-08',end:'2026-04-15',status:'已完成',days:1,note:'',deps:[],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  {id:11,proj:'石油专题页',mod:'专题页',dept:'UI',name:'页面视觉设计',owner:'李娜',owners:['李娜'],pri:'P0',start:'2026-04-16',end:'2026-04-25',status:'进行中',days:2,note:'',deps:[10],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  {id:12,proj:'石油专题页',mod:'专题页',dept:'开发',name:'前端页面开发',owner:'张伟',owners:['张伟'],pri:'P0',start:'2026-04-26',end:'2026-05-08',status:'未开始',days:3,note:'',deps:[11],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  {id:13,proj:'石油专题页',mod:'专题页',dept:'测试',name:'功能 & 数据测试',owner:'陈磊',owners:['陈磊'],pri:'P0',start:'2026-05-09',end:'2026-05-13',status:'未开始',days:1,note:'',deps:[12],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  // 澳洲Pro — 逾期+高风险
+  {id:14,proj:'澳洲Pro活动',mod:'欢迎赠金',dept:'产品',name:'需求文档 & 合规审核',owner:'王芳',owners:['王芳'],pri:'P0',start:'2026-04-01',end:'2026-04-15',status:'已延期',days:1,note:'合规部门审核周期比预期长',deps:[],riskLevel:'高',riskAction:'已升级到合规负责人，争取本周完成',riskDeadline:'2026-05-10',riskSupport:'需要法务团队协助'},
+  {id:15,proj:'澳洲Pro活动',mod:'欢迎赠金',dept:'UI',name:'活动页视觉设计',owner:'李娜',owners:['李娜'],pri:'P0',start:'2026-04-16',end:'2026-04-25',status:'未开始',days:2,note:'',deps:[14],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  {id:16,proj:'澳洲Pro活动',mod:'欢迎赠金',dept:'开发',name:'赠金发放逻辑',owner:'张伟',owners:['张伟'],pri:'P0',start:'2026-04-26',end:'2026-05-10',status:'未开始',days:3,note:'',deps:[15],riskLevel:'中',riskAction:'需提前确认赠金上限规则',riskDeadline:'2026-04-26',riskSupport:''},
+  {id:17,proj:'澳洲Pro活动',mod:'月度活动',dept:'产品',name:'月度活动需求文档',owner:'王芳',owners:['王芳'],pri:'P1',start:'2026-04-18',end:'2026-04-28',status:'进行中',days:1,note:'',deps:[],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  {id:18,proj:'澳洲Pro活动',mod:'月度活动',dept:'UI',name:'月度活动视觉设计',owner:'李娜',owners:['李娜'],pri:'P1',start:'2026-04-29',end:'2026-05-08',status:'未开始',days:2,note:'',deps:[17],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  {id:19,proj:'澳洲Pro活动',mod:'月度活动',dept:'开发',name:'活动逻辑开发',owner:'张伟',owners:['张伟'],pri:'P1',start:'2026-05-09',end:'2026-05-18',status:'未开始',days:3,note:'',deps:[18],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
+  {id:20,proj:'澳洲Pro活动',mod:'月度活动',dept:'测试',name:'全流程测试',owner:'陈磊',owners:['陈磊'],pri:'P1',start:'2026-05-19',end:'2026-05-22',status:'未开始',days:1,note:'',deps:[19],riskLevel:'',riskAction:'',riskDeadline:'',riskSupport:''},
 ];
 const SEED_MEMBERS=[
   {id:'m1',name:'张伟',dept:'开发',hours:8,threshold:20},
@@ -742,6 +767,12 @@ function statusPill(s){const st=statuses.find(x=>x.name===s);const c=st?st.color
 function deptPill(d){const dept=departments.find(x=>x.name===d);const c=dept?dept.color:'#6b7280';return`<span class="pill" style="background:${colorToLight(c)};color:${c}">${d}</span>`;}
 function priPill(p){const m={P0:'pill-p0',P1:'pill-p1',P2:'pill-p2'};return`<span class="pill ${m[p]||'pill-p2'}">${p}</span>`;}
 function riskBadge(r){if(!r)return'';const cls={高:'risk-hi',中:'risk-mid',低:'risk-lo'}[r]||'risk-lo';return`<span class="risk-badge ${cls}">⚠ ${r}</span>`;}
+function depWarning(t){
+  if(!t.deps||!t.deps.length)return'';
+  const unfinished=t.deps.filter(depId=>{const dep=tasks.find(x=>x.id===depId);return dep&&!isCompletedStatus(dep.status);});
+  if(!unfinished.length)return'';
+  return`<span class="risk-badge" style="background:#ede9fe;color:#5b21b6" title="${unfinished.map(id=>{const d=tasks.find(x=>x.id===id);return d?d.name:'';}).join('、')} 未完成">⛓ 前置未完成</span>`;
+}
 function msProgress(proj,msId){
   const msTasks=tasks.filter(t=>t.proj===proj&&t.milestone===msId);
   if(!msTasks.length)return{pct:0,done:0,total:0,days:0,donedays:0};
@@ -768,30 +799,86 @@ function renderStats(){
   const riskCount=tasks.filter(t=>t.riskLevel==='高'&&!isCompletedStatus(t.status)).length;
   document.getElementById('stats').innerHTML=`
     <div class="stat-card clickable" onclick="filterAllTasks()"><div class="stat-n">${tasks.length}</div><div class="stat-l">全部任务</div></div>
-    <div class="stat-card clickable" onclick="setViewAndFilter('risk')"><div class="stat-n red">${ov}</div><div class="stat-l">已逾期</div></div>
-    <div class="stat-card clickable" onclick="setViewAndFilter('risk')"><div class="stat-n amber">${wn}</div><div class="stat-l">3天内到期</div></div>
+    <div class="stat-card clickable" onclick="filterOverdue()"><div class="stat-n red">${ov}</div><div class="stat-l">已逾期</div></div>
+    <div class="stat-card clickable" onclick="filterDueSoon()"><div class="stat-n amber">${wn}</div><div class="stat-l">3天内到期</div></div>
     <div class="stat-card clickable" onclick="filterActiveTasks()"><div class="stat-n blue">${ac}</div><div class="stat-l">进行中</div></div>
     <div class="stat-card clickable" onclick="filterUnassigned()"><div class="stat-n purple">${ua}</div><div class="stat-l">未分配负责人</div></div>
-    <div class="stat-card clickable" onclick="filterByHighRisk()" style="${riskCount?'border-color:#fca5a5':''}"><div class="stat-n ${riskCount?'red':'green'}">${riskCount}</div><div class="stat-l">高风险任务</div></div>`;
+    <div class="stat-card clickable" onclick="filterByHighRisk()" style="${riskCount?'border:2px solid #dc2626;':''}"><div class="stat-n red">${riskCount}</div><div class="stat-l">高风险任务</div></div>`;
 }
 function filterAllTasks(){
-  ['f-status','f-proj','f-dept'].forEach(id=>document.getElementById(id).value='');
-  currentView='all';document.querySelectorAll('#task-tabs .tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
-  document.getElementById('table-title').textContent='所有任务';renderTasks();
+  document.getElementById('f-proj').value='';
+  document.getElementById('f-dept').value='';
+  document.getElementById('f-status').value='';
+  projFilter='';
+  currentView='all';
+  document.querySelectorAll('#task-tabs .tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.getElementById('table-title').textContent='所有任务';
+  renderTasks();
 }
 function filterActiveTasks(){
-  document.getElementById('f-proj').value='';document.getElementById('f-dept').value='';
-  // filter tasks that are not completed and not risk
-  currentView='all';document.querySelectorAll('#task-tabs .tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
-  document.getElementById('table-title').textContent='进行中任务';
-  const doing=statuses.filter(s=>s.group==='doing').map(s=>s.name);
-  const data=tasks.filter(t=>doing.includes(t.status));
-  document.getElementById('task-count').textContent=`共 ${data.length} 条`;
+  document.getElementById('f-proj').value='';
+  document.getElementById('f-dept').value='';
   document.getElementById('f-status').value='';
-  document.getElementById('task-table').innerHTML=TABLE_HDR+taskTableRows(data.sort((a,b)=>(a.end||'9').localeCompare(b.end||'9')))+'</tbody></table>';
+  projFilter='';
+  currentView='all';
+  document.querySelectorAll('#task-tabs .tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.getElementById('table-title').textContent='进行中任务';
+  // 将进行中group的任务直接渲染
   renderStats();
+  const doing=statuses.filter(s=>s.group==='doing'||s.group==='risk').map(s=>s.name);
+  const data=tasks.filter(t=>!isCompletedStatus(t.status));
+  document.getElementById('task-count').textContent=`共 ${data.length} 条`;
+  const byP={};data.forEach(t=>(byP[t.proj]||(byP[t.proj]=[])).push(t));
+  let html='';
+  Object.entries(byP).forEach(([proj,ts])=>{
+    const c=PROJ_C[proj]||'#888';
+    const sorted=ts.slice().sort((a,b)=>(a.end||'9').localeCompare(b.end||'9'));
+    html+=`<div class="group-hd"><span class="dot" style="background:${c}"></span>${proj}<span class="cnt-badge">${ts.length}</span></div>`;
+    html+=TABLE_HDR+taskTableRows(sorted)+'</tbody></table>';
+  });
+  if(!data.length)html+=TABLE_HDR+`<tr class="empty-row"><td colspan="9">暂无进行中任务</td></tr></tbody></table>`;
+  document.getElementById('task-table').innerHTML=html;
 }
 function setViewAndFilter(v){currentView=v;document.querySelectorAll('#task-tabs .tab-btn').forEach(b=>b.classList.remove('active'));document.getElementById('table-title').textContent='风险预警';renderTasks();}
+
+function _showDirectList(title, data){
+  // 直接渲染一组任务，不经过 getFiltered() 筛选器
+  document.getElementById('table-title').textContent=title;
+  document.getElementById('task-count').textContent=`共 ${data.length} 条`;
+  const byP={};
+  data.forEach(t=>(byP[t.proj]||(byP[t.proj]=[])).push(t));
+  let html='';
+  Object.entries(byP).forEach(([proj,ts])=>{
+    const c=PROJ_C[proj]||'#888';
+    const sorted=ts.slice().sort((a,b)=>(a.end||'9').localeCompare(b.end||'9'));
+    html+=`<div class="group-hd"><span class="dot" style="background:${c}"></span>${proj}<span class="cnt-badge">${ts.length}</span></div>`;
+    html+=TABLE_HDR+taskTableRows(sorted)+'</tbody></table>';
+  });
+  if(!data.length) html+=TABLE_HDR+`<tr class="empty-row"><td colspan="9">暂无符合条件的任务</td></tr></tbody></table>`;
+  document.getElementById('task-table').innerHTML=html;
+}
+
+function filterOverdue(){
+  ['f-proj','f-dept','f-status'].forEach(id=>document.getElementById(id).value='');
+  projFilter='';
+  currentView='all';
+  document.querySelectorAll('#task-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
+  renderStats();
+  const data=tasks.filter(t=>!isCompletedStatus(t.status)&&t.end&&dl(t.end)<0)
+    .sort((a,b)=>(a.end||'9').localeCompare(b.end||'9'));
+  _showDirectList('已逾期任务', data);
+}
+
+function filterDueSoon(){
+  ['f-proj','f-dept','f-status'].forEach(id=>document.getElementById(id).value='');
+  projFilter='';
+  currentView='all';
+  document.querySelectorAll('#task-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
+  renderStats();
+  const data=tasks.filter(t=>!isCompletedStatus(t.status)&&t.end&&dl(t.end)>=0&&dl(t.end)<=3)
+    .sort((a,b)=>(a.end||'9').localeCompare(b.end||'9'));
+  _showDirectList('3天内到期任务', data);
+}
 function filterUnassigned(){
   ['f-status','f-proj','f-dept'].forEach(id=>document.getElementById(id).value='');
   currentView='all';document.querySelectorAll('#task-tabs .tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
@@ -827,7 +914,7 @@ function taskTableRows(list){
     <td>${deptPill(t.dept)}</td><td>${ownerCell(t)}</td><td>${priPill(t.pri)}</td>
     <td style="font-size:12px">${fmt(t.start)}</td><td style="font-size:12px">${fmt(t.end)}</td>
     <td style="font-weight:500;color:var(--blue)">${t.days?t.days+'天':'—'}</td>
-    <td>${statusPill(t.status)}</td><td>${riskBadge(t.riskLevel)}</td><td>${dayChip(t)}</td>
+    <td>${statusPill(t.status)}</td><td>${riskBadge(t.riskLevel)}${depWarning(t)}</td><td>${dayChip(t)}</td>
   </tr>`).join('');
 }
 const TABLE_HDR=`<table><thead><tr><th>任务</th><th>角色</th><th>负责人</th><th>优先级</th><th>开始</th><th>截止</th><th>人天</th><th>状态</th><th>风险</th><th>倒计时</th></tr></thead><tbody>`;
@@ -882,7 +969,7 @@ function renderKanban(){
         ${deptPill(t.dept)}
         ${(t.owners&&t.owners.length?t.owners:(t.owner?[t.owner]:[])).length?(t.owners&&t.owners.length?t.owners:[t.owner]).join('、'):'<span style="color:#dc2626">未分配</span>'}
         ${t.end?`<span>${fmt(t.end)}</span>`:''}
-        ${riskBadge(t.riskLevel)}
+        ${riskBadge(t.riskLevel)}${depWarning(t)}
         ${dayChip(t)}
       </div>
     </div>`).join('');
@@ -983,36 +1070,54 @@ function renderGantt(){
 
   const totalW=cols.reduce((s,c)=>s+c.width,0);
 
-  // Position helpers
+  // Position helpers — pre-build offset table for accuracy
+  const colOffsets=[];
+  let _off=0;
+  for(const c of cols){colOffsets.push(_off);_off+=c.width;}
+  const totalWFull=_off;
+
   function colLeft(dateObj){
-    const ds=dateStr(dateObj);
-    let left=0;
-    for(const c of cols){
+    const ms=dateObj.getTime();
+    for(let i=0;i<cols.length;i++){
+      const c=cols[i];
       if(ganttView==='month'){
         const cEnd=new Date(c.date.getFullYear(),c.date.getMonth()+1,1);
-        if(dateObj>=c.date&&dateObj<cEnd){
-          const daysInMonth=(cEnd-c.date)/86400000;
-          const dayOffset=(dateObj-c.date)/86400000;
-          return left+c.width*(dayOffset/daysInMonth);
+        if(ms>=c.date.getTime()&&ms<cEnd.getTime()){
+          const span=cEnd.getTime()-c.date.getTime();
+          const frac=(ms-c.date.getTime())/span;
+          return colOffsets[i]+c.width*frac;
         }
       } else if(ganttView==='week'){
-        const cEnd=addDays(c.date,7);
-        if(dateObj>=c.date&&dateObj<cEnd){
-          return left+c.width*((dateObj-c.date)/86400000/7);
+        const cEndMs=c.date.getTime()+7*86400000;
+        if(ms>=c.date.getTime()&&ms<cEndMs){
+          const frac=(ms-c.date.getTime())/(7*86400000);
+          return colOffsets[i]+c.width*frac;
         }
       } else {
-        if(dateStr(c.date)===ds)return left;
-        if(dateObj>c.date)left+=c.width; else return left;
+        // day view: each col = one calendar day
+        const cMs=c.date.getTime();
+        const nextMs=cMs+86400000;
+        if(ms>=cMs&&ms<nextMs){
+          return colOffsets[i];
+        }
       }
-      left+=c.width;
     }
-    return left;
+    // fallback: clamp
+    if(ms<cols[0].date.getTime())return 0;
+    return _off;
   }
-  function barLeft(t){return colLeft(new Date(t.start));}
+  function barLeft(t){
+    const s=new Date(t.start);s.setHours(0,0,0,0);return colLeft(s);
+  }
   function barWidth(t){
-    const s=new Date(t.start),e=new Date(t.end);
-    const l=colLeft(s),r=colLeft(addDays(e,ganttView==='day'?1:0));
-    return Math.max(r-l, ganttView==='day'?38:ganttView==='week'?14:20);
+    const s=new Date(t.start);s.setHours(0,0,0,0);
+    const e=new Date(t.end);e.setHours(0,0,0,0);
+    // end bar = start of day AFTER end date
+    const eNext=new Date(e.getTime()+86400000);
+    const l=colLeft(s);
+    const r=colLeft(eNext);
+    const minW=ganttView==='day'?38:ganttView==='week'?14:20;
+    return Math.max(r-l,minW);
   }
 
   // Today position
@@ -1728,11 +1833,204 @@ function addAttendee(){
 }
 function removeAttendee(name){editingAttendees=editingAttendees.filter(x=>x!==name);renderAttendeeChips();}
 
+// ── QUICK INPUT ────────────────────────────────────────
+let qiParsed=null;
+
+function openQuickInput(){
+  document.getElementById('qi-text').value='';
+  document.getElementById('qi-result').classList.remove('show');
+  document.getElementById('qi-result').innerHTML='';
+  document.getElementById('qi-parse-btn').style.display='inline-flex';
+  document.getElementById('qi-create-btn').style.display='none';
+  document.getElementById('qi-clear-btn').style.display='none';
+  document.getElementById('qi-hint').textContent='输入描述后点「解析」，AI 会帮你提取关键字段';
+  qiParsed=null;
+  document.getElementById('qi-overlay').classList.add('show');
+  setTimeout(()=>document.getElementById('qi-text').focus(),100);
+}
+function closeQuickInput(){document.getElementById('qi-overlay').classList.remove('show');}
+function clearQiResult(){
+  document.getElementById('qi-result').classList.remove('show');
+  qiParsed=null;
+  document.getElementById('qi-parse-btn').style.display='inline-flex';
+  document.getElementById('qi-create-btn').style.display='none';
+  document.getElementById('qi-clear-btn').style.display='none';
+  document.getElementById('qi-text').value='';
+  document.getElementById('qi-text').focus();
+}
+
+async function parseQuickInput(){
+  const text=document.getElementById('qi-text').value.trim();
+  if(!text){alert('请先输入任务描述');return;}
+  const resultEl=document.getElementById('qi-result');
+  const parseBtn=document.getElementById('qi-parse-btn');
+  parseBtn.disabled=true;parseBtn.textContent='解析中...';
+  resultEl.innerHTML='<div class="qi-loading">⏳ 正在识别任务信息...</div>';
+  resultEl.classList.add('show');
+
+  const projNames=activeProjects().map(p=>p.name).join('、');
+  const deptNames=departments.filter(d=>!d.archived).map(d=>d.name).join('、');
+  const memberNames=members.map(m=>m.name).join('、');
+  const statusNames=statuses.map(s=>s.name).join('、');
+
+  const prompt=`你是一个项目管理助手。请从下面的文字描述中提取任务信息，返回严格的JSON格式，不要包含任何其他文字或markdown符号。
+
+已有项目：${projNames||'无'}
+已有角色：${deptNames||'无'}
+已有成员：${memberNames||'无'}
+已有状态：${statusNames||'无'}
+
+规则：
+- proj：从已有项目中匹配，完全匹配或模糊匹配最近的，找不到则返回""
+- mod：模块名，从描述中提取，找不到则""
+- name：任务名称，必填，从描述中提取核心任务内容
+- dept：从已有角色中匹配，找不到则""
+- owners：负责人数组，从已有成员中匹配名字，找不到则[]
+- pri：优先级，只能是P0/P1/P2，找不到默认P1
+- status：从已有状态中匹配，找不到默认"未开始"
+- start：开始日期，格式YYYY-MM-DD，找不到则""
+- end：结束日期，格式YYYY-MM-DD，找不到则""
+- days：预计人天数字，找不到则0
+- riskLevel：风险等级，只能是高/中/低/""，找不到则""
+- riskSupport：需要的支持，从描述中提取，找不到则""
+- note：备注，其他重要信息，找不到则""
+
+文字描述：${text}
+
+返回JSON（只返回JSON，不要其他文字）：`;
+
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:800,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await resp.json();
+    const raw=data.content&&data.content[0]?data.content[0].text:'';
+    const clean=raw.replace(/```json|```/g,'').trim();
+    qiParsed=JSON.parse(clean);
+    renderQiResult(qiParsed);
+    document.getElementById('qi-parse-btn').style.display='none';
+    document.getElementById('qi-create-btn').style.display='inline-flex';
+    document.getElementById('qi-clear-btn').style.display='inline-flex';
+    document.getElementById('qi-hint').textContent='核对下方识别结果，确认后点「创建任务」';
+  }catch(e){
+    // Fallback: 本地简单解析
+    qiParsed=localParse(text);
+    renderQiResult(qiParsed);
+    document.getElementById('qi-parse-btn').style.display='none';
+    document.getElementById('qi-create-btn').style.display='inline-flex';
+    document.getElementById('qi-clear-btn').style.display='inline-flex';
+    document.getElementById('qi-hint').textContent='（本地解析模式）核对识别结果后点「创建任务」';
+  }
+  parseBtn.disabled=false;parseBtn.textContent='解析';
+}
+
+function localParse(text){
+  // Simple local fallback parser
+  const result={proj:'',mod:'',name:text.slice(0,40),dept:'',owners:[],pri:'P1',status:'未开始',start:'',end:'',days:0,riskLevel:'',riskSupport:'',note:''};
+  // match project
+  activeProjects().forEach(p=>{if(text.includes(p.name))result.proj=p.name;});
+  // match dept
+  departments.filter(d=>!d.archived).forEach(d=>{if(text.includes(d.name))result.dept=d.name;});
+  // match members
+  members.forEach(m=>{if(text.includes(m.name)&&!result.owners.includes(m.name))result.owners.push(m.name);});
+  // match priority
+  if(text.includes('P0')||text.includes('最高'))result.pri='P0';
+  else if(text.includes('P2')||text.includes('低优'))result.pri='P2';
+  // match risk
+  if(text.includes('高风险')||text.includes('风险高'))result.riskLevel='高';
+  else if(text.includes('中风险'))result.riskLevel='中';
+  else if(text.includes('低风险'))result.riskLevel='低';
+  // match days: number + 天
+  const daysM=text.match(/(\d+\.?\d*)\s*[人工]?天/);
+  if(daysM)result.days=parseFloat(daysM[1]);
+  // match dates yyyy-mm-dd or m月d日
+  const dateMs=[...text.matchAll(/(\d{4})[年-](\d{1,2})[月-](\d{1,2})/g)];
+  if(dateMs.length>=1)result.start=`${dateMs[0][1]}-${String(dateMs[0][2]).padStart(2,'0')}-${String(dateMs[0][3]).padStart(2,'0')}`;
+  if(dateMs.length>=2)result.end=`${dateMs[1][1]}-${String(dateMs[1][2]).padStart(2,'0')}-${String(dateMs[1][3]).padStart(2,'0')}`;
+  return result;
+}
+
+function renderQiResult(r){
+  const el=document.getElementById('qi-result');
+  const fields=[
+    ['任务名称',r.name||'（未识别）'],
+    ['项目',r.proj||'—'],
+    ['模块',r.mod||'—'],
+    ['角色',r.dept||'—'],
+    ['负责人',(r.owners&&r.owners.length?r.owners.join('、'):'—')],
+    ['优先级',r.pri||'P1'],
+    ['状态',r.status||'未开始'],
+    ['开始日期',r.start||'—'],
+    ['截止日期',r.end||'—'],
+    ['预计人天',r.days?r.days+'天':'—'],
+    ['风险等级',r.riskLevel||'—'],
+    ['需要支持',r.riskSupport||'—'],
+    ['备注',r.note||'—'],
+  ];
+  el.innerHTML=fields.map(([l,v])=>`<div class="qi-field"><span class="qi-label">${l}</span><span class="qi-val">${v}</span></div>`).join('');
+  el.classList.add('show');
+}
+
+function createFromQi(){
+  if(!qiParsed){alert('请先解析');return;}
+  const r=qiParsed;
+  // Open task modal with pre-filled values
+  closeQuickInput();
+  editId=null;
+  document.getElementById('modal-ttl').textContent='新增任务（已预填）';
+  document.getElementById('btn-del').style.display='none';
+  document.getElementById('flow-hint').style.display='none';
+  // Fill fields
+  populateProjDropdown(r.proj||'');
+  document.getElementById('f-proj-in').value=r.proj||'';
+  syncMods();
+  setTimeout(()=>{document.getElementById('f-mod-in').value=r.mod||'';},50);
+  document.getElementById('f-name').value=r.name||'';
+  populateDeptSelect(document.getElementById('f-dept-in'),r.dept||'');
+  editingOwners=(r.owners&&r.owners.length?r.owners:[]);
+  syncOwners();
+  document.getElementById('f-pri').value=r.pri||'P1';
+  populateStatusSelect(r.status||'未开始');
+  document.getElementById('f-start').value=r.start||'';
+  document.getElementById('f-end').value=r.end||'';
+  document.getElementById('f-days').value=r.days||'';
+  document.getElementById('f-risk-level').value=r.riskLevel||'';
+  document.getElementById('f-risk-support').value=r.riskSupport||'';
+  document.getElementById('f-risk-action').value='';
+  document.getElementById('f-risk-deadline').value='';
+  document.getElementById('f-note').value=r.note||'';
+  editingDeps=[];renderDepTags(null);
+  document.getElementById('overlay').classList.add('show');
+}
+
 document.addEventListener('click',e=>{if(!document.getElementById('settings-btn').contains(e.target))document.getElementById('settings-dropdown').classList.remove('open');});
 ['overlay','proj-overlay','settings-overlay','meeting-overlay','assign-overlay'].forEach(id=>{document.getElementById(id).addEventListener('click',e=>{if(e.target===e.currentTarget)e.target.classList.remove('show');});});
 
 const d=TODAY;document.getElementById('today-lbl').textContent=`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
 load();initFilters();renderTasks();renderResource();
 </script>
+
+<!-- QUICK INPUT PANEL -->
+<div class="quick-input-overlay" id="qi-overlay" onclick="if(event.target===this)closeQuickInput()">
+  <div class="quick-input-panel">
+    <h3>✨ 文字快速创建任务</h3>
+    <p>用自然语言描述任务，系统自动识别并填充字段，你再核对补充即可</p>
+    <textarea class="quick-input-textarea" id="qi-text" placeholder="例：世界杯竞猜模块的前端开发，由开发部门负责，张伟和李明一起做，预计5天，5月11号开始5月25号结束，优先级P0，风险高，需要跨团队协调API接口"></textarea>
+    <div class="qi-result" id="qi-result"></div>
+    <div class="quick-input-actions">
+      <span class="quick-input-hint" id="qi-hint">输入描述后点「解析」，AI 会帮你提取关键字段</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeQuickInput()">取消</button>
+      <button class="btn btn-ghost btn-sm" id="qi-clear-btn" onclick="clearQiResult()" style="display:none">重新输入</button>
+      <button class="btn btn-primary btn-sm" id="qi-parse-btn" onclick="parseQuickInput()">解析</button>
+      <button class="btn btn-primary btn-sm" id="qi-create-btn" onclick="createFromQi()" style="display:none;background:#7c3aed;border-color:#7c3aed">创建任务</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
